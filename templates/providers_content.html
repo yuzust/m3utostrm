@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en" class="{{ theme }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M3U to STRM Converter - Provider Content</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="fade-in">
+    <div class="container">
+        <header class="app-header">
+            <div class="logo">
+                <i class="fas fa-film"></i> M3U to STRM
+            </div>
+            <nav class="nav-links">
+                <a href="{{ url_for('index') }}" class="nav-link">Home</a>
+                <a href="{{ url_for('status') }}" class="nav-link">Status</a>
+                <a href="{{ url_for('config_page') }}" class="nav-link">Settings</a>
+                <a href="{{ url_for('content_history') }}" class="nav-link">History</a>
+                <a href="{{ url_for('processing_page') }}" class="nav-link">Processing</a>
+                <a href="{{ url_for('providers_page') }}" class="nav-link">Providers</a>
+                <a href="{{ url_for('diagnostics_page') }}" class="nav-link">Diagnostics</a>
+                <a href="{{ url_for('direct_url_check') }}" class="nav-link">URL Check</a>
+                <a href="{{ url_for('filter_settings') }}" class="nav-link">Filter Settings</a>
+            </nav>
+        </header>
+        
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        <div class="alert alert-info">
+            <ul class="mb-0">
+                {% for message in messages %}
+                <li>{{ message }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        {% endwith %}
+        
+        <!-- Provider Info -->
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-server"></i> Provider Information
+            </div>
+            <div class="card-body">
+                <div class="info-box">
+                    <div class="provider-details">
+                        <h3>{{ provider.name }}</h3>
+                        <p><strong>Provider ID:</strong> {{ provider_id }}</p>
+                        <p><strong>URL:</strong> {{ provider.url }}</p>
+                        <p><strong>First Seen:</strong> {{ provider.first_seen }}</p>
+                        <p><strong>Content Count:</strong> {{ provider.content_count }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Movies from Provider -->
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-film"></i> Movies ({{ content.movies|length }})
+            </div>
+            <div class="card-body">
+                {% if content.movies %}
+                <div class="table-container">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Title</th>
+                                <th>Year</th>
+                                <th>Resolution</th>
+                                <th>Sources</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for movie in content.movies %}
+                            <tr>
+                                <td>{{ movie.title }}</td>
+                                <td>{{ movie.year }}</td>
+                                <td>{{ movie.resolution }}</td>
+                                <td>{{ movie.provider_count }}</td>
+                                <td>
+                                    {% if movie.preferred %}
+                                    <span class="badge bg-green">Preferred</span>
+                                    {% else %}
+                                    <span class="badge bg-gray">Alternative</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if not movie.preferred %}
+                                    <button class="btn btn-primary btn-sm set-preferred-btn" 
+                                            data-content-type="movie" 
+                                            data-content-hash="{{ movie.hash }}" 
+                                            data-provider-id="{{ provider_id }}">
+                                        <i class="fas fa-star"></i> Set as Preferred
+                                    </button>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="info-box" style="text-align: center;">
+                    <i class="fas fa-info-circle" style="font-size: 2rem; margin-bottom: 10px; color: var(--info-color);"></i>
+                    <p>No movies from this provider.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- TV Shows from Provider -->
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-tv"></i> TV Episodes ({{ content.tv_shows|length }})
+            </div>
+            <div class="card-body">
+                {% if content.tv_shows %}
+                <div class="table-container">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Show</th>
+                                <th>Episode</th>
+                                <th>Resolution</th>
+                                <th>Sources</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for show in content.tv_shows %}
+                            <tr>
+                                <td>{{ show.title }}</td>
+                                <td>S{{ show.season }}E{{ show.episode }}</td>
+                                <td>{{ show.resolution }}</td>
+                                <td>{{ show.provider_count }}</td>
+                                <td>
+                                    {% if show.preferred %}
+                                    <span class="badge bg-green">Preferred</span>
+                                    {% else %}
+                                    <span class="badge bg-gray">Alternative</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if not show.preferred %}
+                                    <button class="btn btn-primary btn-sm set-preferred-btn" 
+                                            data-content-type="tv_show" 
+                                            data-content-hash="{{ show.hash }}" 
+                                            data-provider-id="{{ provider_id }}">
+                                        <i class="fas fa-star"></i> Set as Preferred
+                                    </button>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="info-box" style="text-align: center;">
+                    <i class="fas fa-info-circle" style="font-size: 2rem; margin-bottom: 10px; color: var(--info-color);"></i>
+                    <p>No TV shows from this provider.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <style>
+        .badge {
+            padding: 5px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            display: inline-block;
+        }
+        
+        .bg-green {
+            background-color: var(--success-color);
+            color: white;
+        }
+        
+        .bg-gray {
+            background-color: var(--gray-color);
+            color: white;
+        }
+        
+        .provider-details {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .provider-details h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            color: var(--primary-color);
+        }
+        
+        .provider-details p {
+            margin: 0;
+        }
+    </style>
+    
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set preferred provider functionality
+            const preferredButtons = document.querySelectorAll('.set-preferred-btn');
+            
+            preferredButtons.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const contentType = this.getAttribute('data-content-type');
+                    const contentHash = this.getAttribute('data-content-hash');
+                    const providerId = this.getAttribute('data-provider-id');
+                    
+                    // Send request to server
+                    fetch('/set_preferred_provider', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            content_type: contentType,
+                            content_hash: contentHash,
+                            provider_id: providerId
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            // Show success notification
+                            showNotification('Success', data.message, 'success');
+                            
+                            // Reload page to reflect changes
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 1500);
+                        } else {
+                            showNotification('Error', data.message, 'error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error setting preferred provider:', error);
+                        showNotification('Error', 'Failed to set preferred provider', 'error');
+                    });
+                });
+            });
+        });
+    </script>
+</body>
+</html>

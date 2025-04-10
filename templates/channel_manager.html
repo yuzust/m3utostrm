@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en" class="{{ theme }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M3U to STRM Converter - Channel Manager</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Updated React and Lucide dependencies -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Use Lucide standalone instead of Lucide React -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="fade-in">
+    <div class="container">
+        <header class="app-header">
+            <div class="logo">
+                <i class="fas fa-film"></i> M3U to STRM
+            </div>
+            <nav class="nav-links">
+                <a href="{{ url_for('index') }}" class="nav-link">Home</a>
+                <a href="{{ url_for('status') }}" class="nav-link">Status</a>
+                <a href="{{ url_for('config_page') }}" class="nav-link">Settings</a>
+                <a href="{{ url_for('content_history') }}" class="nav-link">History</a>
+                <a href="{{ url_for('processing_page') }}" class="nav-link">Processing</a>
+                <a href="{{ url_for('providers_page') }}" class="nav-link">Providers</a>
+                <a href="{{ url_for('proxy_page') }}" class="nav-link">Proxy</a>
+                <a href="{{ url_for('diagnostics_page') }}" class="nav-link">Diagnostics</a>
+            </nav>
+        </header>
+        
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        <div class="alert alert-info">
+            <ul class="mb-0">
+                {% for message in messages %}
+                <li>{{ message }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        {% endwith %}
+        
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-th-list"></i> Channel Manager: {{ m3u_name }}
+                <a href="{{ url_for('proxy_page') }}" class="btn btn-secondary btn-sm" style="float: right;">
+                    <i class="fas fa-arrow-left"></i> Back to Proxies
+                </a>
+            </div>
+            <div class="card-body">
+                {% if m3u %}
+                <!-- Channel Manager Tools from Basic Editor -->
+                <div class="config-section">
+                    <div class="config-section-title">
+                        <i class="fas fa-tools"></i> Channel Tools
+                    </div>
+                    
+                    <div class="info-box" style="margin-bottom: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong>Channels:</strong> {{ m3u.channels|length if m3u and m3u.channels else 0 }}
+                                <strong style="margin-left: 15px;">Groups:</strong> {{ groups|length if groups else 0 }}
+                            </div>
+                            <div>
+                                <a href="{{ url_for('serve_proxy_m3u', proxy_id=proxy_id) }}" class="btn btn-primary btn-sm" target="_blank">
+                                    <i class="fas fa-download"></i> Download M3U
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="tool-buttons" style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px;">
+                        <button id="optimize-btn" class="btn btn-primary" data-action="optimize">
+                            <i class="fas fa-magic"></i> Optimize Channel Names
+                        </button>
+                        <button id="renumber-btn" class="btn btn-primary" data-action="renumber">
+                            <i class="fas fa-sort-numeric-down"></i> Renumber Channels
+                        </button>
+                        <button id="filter-btn" class="btn btn-primary" data-action="filter">
+                            <i class="fas fa-filter"></i> Filter Channels
+                        </button>
+                        <button id="vod-filter-btn" class="btn btn-primary" data-action="vod-filter">
+                            <i class="fas fa-tv"></i> Live/VOD Filter
+                        </button>
+                    </div>
+                    
+                    <!-- Tool Setting Panels (initially hidden) -->
+                    <div id="tool-panels">
+                        <!-- Optimize Panel -->
+                        <div id="optimize-panel" class="tool-panel" style="display: none;">
+                            <form id="optimize-form">
+                                <div class="form-group">
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="remove_country_prefix" name="remove_country_prefix" checked>
+                                        <label class="form-check-label" for="remove_country_prefix">Remove country prefixes (e.g., "US: ", "UK - ")</label>
+                                    </div>
+                                    
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="remove_quality_prefix" name="remove_quality_prefix" checked>
+                                        <label class="form-check-label" for="remove_quality_prefix">Remove quality prefixes (e.g., "HD: ", "4K - ")</label>
+                                    </div>
+                                    
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="remove_suffixes" name="remove_suffixes" checked>
+                                        <label class="form-check-label" for="remove_suffixes">Remove suffixes (e.g., "HD", "FHD", "4K", "V2", "FI")</label>
+                                    </div>
+                                    
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="remove_brackets" name="remove_brackets" checked>
+                                        <label class="form-check-label" for="remove_brackets">Remove text in brackets (e.g., "[VIP]", "(Adult)", "{FR}")</label>
+                                    </div>
+                                    
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="remove_symbols" name="remove_symbols" checked>
+                                        <label class="form-check-label" for="remove_symbols">Remove symbols (e.g., "|", "*", "#")</label>
+                                    </div>
+                                    
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="fix_spacing" name="fix_spacing" checked>
+                                        <label class="form-check-label" for="fix_spacing">Fix spacing (convert multiple spaces to single space)</label>
+                                    </div>
+                                    
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="remove_special_chars" name="remove_special_chars" checked>
+                                        <label class="form-check-label" for="remove_special_chars">Remove special characters (e.g., "ᵁᴴᴰ", "♫")</label>
+                                    </div>
+                                </div>
+                                
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-check"></i> Apply Optimization
+                                </button>
+                                <button type="button" class="btn btn-secondary cancel-tool">
+                                    <i class="fas fa-times"></i> Cancel
+                                </button>
+                            </form>
+                        </div>
+                        
+                        <!-- Renumber Panel -->
+                        <div id="renumber-panel" class="tool-panel" style="display: none;">
+                            <form id="renumber-form">
+                                <div class="form-group">
+                                    <label for="start_number" class="form-label">Start Number:</label>
+                                    <input type="number" class="form-control" id="start_number" name="start_number" value="1" min="1">
+                                    <small class="form-text">The number to start from</small>
+                                </div>
+                                
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input" id="by_group" name="by_group">
+                                    <label class="form-check-label" for="by_group">Number channels by group (each group starts with a new number range)</label>
+                                </div>
+                                
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-check"></i> Apply Renumbering
+                                </button>
+                                <button type="button" class="btn btn-secondary cancel-tool">
+                                    <i class="fas fa-times"></i> Cancel
+                                </button>
+                            </form>
+                        </div>
+                        
+                        <!-- Filter Panel -->
+                        <div id="filter-panel" class="tool-panel" style="display: none;">
+                            <form id="filter-form">
+                                <div class="form-group">
+                                    <label for="group" class="form-label">Filter by Group:</label>
+                                    <select class="form-control" id="group" name="group">
+                                        <option value="">All Groups</option>
+                                        {% for group, count in groups %}
+                                        <option value="{{ group }}">{{ group }} ({{ count }} channels)</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="name_contains" class="form-label">Filter by Name Contains:</label>
+                                    <input type="text" class="form-control" id="name_contains" name="name_contains" placeholder="Enter search text">
+                                    <small class="form-text">Leave empty to include all channel names</small>
+                                </div>
+                                
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-check"></i> Create Filtered M3U
+                                </button>
+                                <button type="button" class="btn btn-secondary cancel-tool">
+                                    <i class="fas fa-times"></i> Cancel
+                                </button>
+                            </form>
+                        </div>
+                        
+                        <!-- VOD Filter Panel -->
+                        <div id="vod-filter-panel" class="tool-panel" style="display: none;">
+                            <form id="vod-filter-form">
+                                <div class="form-check">
+                                    <input type="radio" class="form-check-input" id="keep_live" name="content_type" value="live" checked>
+                                    <label class="form-check-label" for="keep_live">Keep only live channels</label>
+                                    <small class="form-text">Removes movies, TV shows, and other VOD content</small>
+                                </div>
+                                
+                                <div class="form-check">
+                                    <input type="radio" class="form-check-input" id="keep_vod" name="content_type" value="vod">
+                                    <label class="form-check-label" for="keep_vod">Keep only VOD content</label>
+                                    <small class="form-text">Removes live channels, keeping only movies and TV shows</small>
+                                </div>
+                                
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-check"></i> Apply Filter
+                                </button>
+                                <button type="button" class="btn btn-secondary cancel-tool">
+                                    <i class="fas fa-times"></i> Cancel
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- This is where our React app will be mounted -->
+                <div id="channel-manager-root"></div>
+                {% else %}
+                <div class="alert alert-danger">
+                    <p><i class="fas fa-exclamation-triangle"></i> Error: Unable to load M3U data. The proxy may not exist or is not accessible.</p>
+                    <a href="{{ url_for('proxy_page') }}" class="btn btn-primary mt-3">
+                        <i class="fas fa-arrow-left"></i> Return to Proxy Manager
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Additional CSS for dark mode -->
+    <style>
+        /* Dark mode variables for React components to match the existing UI */
+        :root {
+            --primary-color: #007aff;
+            --secondary-color: #5ac8fa;
+            --success-color: #34c759;
+            --danger-color: #ff3b30;
+            --warning-color: #ffcc00;
+            --info-color: #5ac8fa;
+            --light-color: #f2f2f7;
+            --dark-color: #1c1c1e;
+            --gray-color: #8e8e93;
+        }
+        
+        .dark {
+            --bg-color: #000;
+            --card-bg: #1c1c1e;
+            --table-header-bg: #2c2c2e;
+            --text-color: #fff;
+            --border-color: #38383a;
+            --input-bg: #2c2c2e;
+            --input-text: #fff;
+            --muted-text: #8e8e93;
+            --hover-bg: #2c2c2e;
+        }
+        
+        .light {
+            --bg-color: #f2f2f7;
+            --card-bg: #fff;
+            --table-header-bg: #f3f4f6;
+            --text-color: #000;
+            --border-color: #d1d1d6;
+            --input-bg: #fff;
+            --input-text: #000;
+            --muted-text: #8e8e93;
+            --hover-bg: #f9fafb;
+        }
+        
+        /* Tool panels */
+        .tool-panel {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        /* Dark mode overrides for the React component */
+        .dark #channel-manager-root {
+            color: var(--text-color);
+        }
+        
+        .dark #channel-manager-root input,
+        .dark #channel-manager-root select {
+            background-color: var(--input-bg);
+            color: var(--input-text);
+            border-color: var(--border-color);
+        }
+        
+        .dark #channel-manager-root table thead {
+            background-color: var(--table-header-bg);
+        }
+        
+        .dark #channel-manager-root table tbody {
+            background-color: var(--card-bg);
+        }
+        
+        .dark #channel-manager-root tbody tr:hover {
+            background-color: var(--hover-bg);
+        }
+        
+        .dark #channel-manager-root .border {
+            border-color: var(--border-color);
+        }
+        
+        .dark #channel-manager-root div[class*="bg-white"],
+        .dark #channel-manager-root div[class*="bg-gray-50"] {
+            background-color: var(--card-bg);
+        }
+        
+        .dark #channel-manager-root button[class*="bg-blue-"] {
+            background-color: var(--primary-color);
+        }
+        
+        .dark #channel-manager-root button[class*="hover:bg-blue-"] {
+            transition: opacity 0.2s;
+        }
+        
+        .dark #channel-manager-root button[class*="hover:bg-blue-"]:hover {
+            opacity: 0.8;
+        }
+        
+        .dark #channel-manager-root button[class*="hover:bg-gray-"] {
+            transition: background-color 0.2s;
+        }
+        
+        .dark #channel-manager-root button[class*="hover:bg-gray-"]:hover {
+            background-color: var(--hover-bg);
+        }
+        
+        .dark #channel-manager-root span[class*="bg-gray-"] {
+            background-color: var(--hover-bg);
+        }
+        
+        /* Improve button styling to match existing UI */
+        #channel-manager-root button.btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            transition: opacity 0.2s;
+        }
+        
+        #channel-manager-root button.btn-primary:hover {
+            opacity: 0.8;
+        }
+        
+        #channel-manager-root button.btn-secondary {
+            background-color: transparent;
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+        
+        #channel-manager-root button.btn-secondary:hover {
+            background-color: var(--hover-bg);
+        }
+    </style>
+    
+    <!-- Initialize Tailwind Config -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        blue: {
+                            50: 'var(--info-color)',
+                            100: 'var(--secondary-color)',
+                            500: 'var(--primary-color)',
+                            600: 'var(--primary-color)',
+                            700: 'var(--primary-color)'
+                        },
+                        red: {
+                            500: 'var(--danger-color)',
+                            700: 'var(--danger-color)'
+                        },
+                        gray: {
+                            50: 'var(--light-color)',
+                            100: 'var(--light-color)',
+                            200: 'var(--border-color)',
+                            300: 'var(--border-color)',
+                            400: 'var(--gray-color)',
+                            500: 'var(--gray-color)',
+                            700: 'var(--dark-color)'
+                        }
+                    }
+                }
+            }
+        };
+        
+        // Apply dark mode class to html element if theme is dark
+        if ("{{ theme }}" === "dark") {
+            document.documentElement.classList.add('dark');
+        }
+    </script>
+    
+    {% if m3u %}
+    <!-- Script for Tool Panel Functionality -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const proxyId = "{{ proxy_id }}";
+            
+            // Tool panel logic
+            const toolButtons = document.querySelectorAll('[data-action]');
+            const toolPanels = document.querySelectorAll('.tool-panel');
+            const cancelButtons = document.querySelectorAll('.cancel-tool');
+            
+            // Hide all tool panels
+            function hideAllPanels() {
+                toolPanels.forEach(panel => {
+                    panel.style.display = 'none';
+                });
+            }
+            
+            // Tool button click handlers
+            toolButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const action = this.getAttribute('data-action');
+                    hideAllPanels();
+                    document.getElementById(`${action}-panel`).style.display = 'block';
+                });
+            });
+            
+            // Cancel button click handlers
+            cancelButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    hideAllPanels();
+                });
+            });
+            
+            // Form submission handlers
+            const optimizeForm = document.getElementById('optimize-form');
+            optimizeForm.addEventListener('submit', function(event) {
+                event.preventDefault();
+                
+                // Collect options
+                const options = {
+                    remove_country_prefix: document.getElementById('remove_country_prefix').checked,
+                    remove_quality_prefix: document.getElementById('remove_quality_prefix').checked,
+                    remove_brackets: document.getElementById('remove_brackets').checked,
+                    remove_symbols: document.getElementById('remove_symbols').checked,
+                    fix_spacing: document.getElementById('fix_spacing').checked,
+                    remove_special_chars: document.getElementById('remove_special_chars').checked,
+                    remove_suffixes: document.getElementById('remove_suffixes').checked
+                };
+                
+                // Show processing notification
+                showNotification('Processing', 'Optimizing channel names...', 'info');
+                
+                // Send request
+                fetch('/proxy/api/optimize', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        proxy_id: proxyId,
+                        options: options
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        showNotification('Success', data.message, 'success');
+                        // Refresh the page to show changes
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
+                    } else {
+                        showNotification('Error', data.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error optimizing channel names:', error);
+                    showNotification('Error', 'Failed to optimize channel names', 'error');
+                });
+                
+                hideAllPanels();
+            });
+            
+            const renumberForm = document.getElementById('renumber-form');
+            renumberForm.addEventListener('submit', function(event) {
+                event.preventDefault();
+                
+                // Get options
+                const startNumber = parseInt(document.getElementById('start_number').value) || 1;
+                const byGroup = document.getElementById('by_group').checked;
+                
+                // Show processing notification
+                showNotification('Processing', 'Renumbering channels...', 'info');
+                
+                // Send request
+                fetch('/proxy/api/renumber', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        proxy_id: proxyId,
+                        start_number: startNumber,
+                        by_group: byGroup
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        showNotification('Success', data.message, 'success');
+                        // Refresh the page to show changes
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
+                    } else {
+                        showNotification('Error', data.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error renumbering channels:', error);
+                    showNotification('Error', 'Failed to renumber channels', 'error');
+                });
+                
+                hideAllPanels();
+            });
+            
+            const filterForm = document.getElementById('filter-form');
+            filterForm.addEventListener('submit', function(event) {
+                event.preventDefault();
+                
+                // Get options
+                const group = document.getElementById('group').value;
+                const nameContains = document.getElementById('name_contains').value.trim();
+                
+                // Show processing notification
+                showNotification('Processing', 'Creating filtered playlist...', 'info');
+                
+                // Send request
+                fetch('/proxy/api/filter', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        proxy_id: proxyId,
+                        group: group || null,
+                        name_contains: nameContains || null
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        showNotification(
+                            'Success', 
+                            `Created filtered M3U with ${data.filtered_count} of ${data.original_count} channels`, 
+                            'success'
+                        );
+                        
+                        // Redirect to the new filtered M3U
+                        setTimeout(() => {
+                            window.location.href = `/proxy/manage-channels/${data.new_proxy_id}`;
+                        }, 1500);
+                    } else {
+                        showNotification('Error', data.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error filtering channels:', error);
+                    showNotification('Error', 'Failed to filter channels', 'error');
+                });
+                
+                hideAllPanels();
+            });
+            
+            const vodFilterForm = document.getElementById('vod-filter-form');
+            vodFilterForm.addEventListener('submit', function(event) {
+                event.preventDefault();
+                
+                // Get selected option
+                const contentType = document.querySelector('input[name="content_type"]:checked').value;
+                const keepLiveOnly = contentType === 'live';
+                
+                // Show processing notification
+                showNotification('Processing', 'Applying content filter...', 'info');
+                
+                // Send request
+                fetch('/proxy/api/filter_vod', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        proxy_id: proxyId,
+                        keep_live_only: keepLiveOnly
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        showNotification(
+                            'Success', 
+                            `Filter applied: ${data.filtered_count} of ${data.original_count} channels remaining`, 
+                            'success'
+                        );
+                        
+                        // Refresh the page to see changes
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
+                    } else {
+                        showNotification('Error', data.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error applying VOD filter:', error);
+                    showNotification('Error', 'Failed to apply VOD filter', 'error');
+                });
+                
+                hideAllPanels();
+            });
+        });
+    </script>
+    
+    <!-- Script to initialize and render the React component -->
+    <script type="text/javascript">
+        document.addEventListener('DOMContentLoaded', function() {
+            // Create a React application for the channel manager
+            try {
+                const React = window.React;
+                const ReactDOM = window.ReactDOM;
+                
+                // Use the global Lucide object instead of lucideReact
+                const { createIcons, icons } = window.lucide;
+                
+                // Create a custom hook to fetch data from our API
+                function useFetch(url, options = {}) {
+                    const [data, setData] = React.useState(null);
+                    const [loading, setLoading] = React.useState(true);
+                    const [error, setError] = React.useState(null);
+                    
+                    React.useEffect(() => {
+                        let isMounted = true;
+                        
+                        const fetchData = async () => {
+                            try {
+                                setLoading(true);
+                                const response = await fetch(url, options);
+                                
+                                if (!response.ok) {
+                                    throw new Error(`HTTP error! Status: ${response.status}`);
+                                }
+                                
+                                const json = await response.json();
+                                
+                                if (isMounted) {
+                                    setData(json);
+                                    setLoading(false);
+                                }
+                            } catch (error) {
+                                if (isMounted) {
+                                    setError(error);
+                                    setLoading(false);
+                                }
+                            }
+                        };
+                        
+                        fetchData();
+                        
+                        return () => {
+                            isMounted = false;
+                        };
+                    }, [url, JSON.stringify(options)]);
+                    
+                    return { data, loading, error, refetch: () => setLoading(true) };
+                }
+                
+                // Main app component
+                function ChannelManagerApp() {
+                    return React.createElement('div', { className: 'p-6 max-w-full' }, 
+                        React.createElement('h2', { className: 'text-xl font-bold mb-4' }, 'Advanced Channel Manager'),
+                        
+                        // Create a loading indicator
+                        React.createElement('div', { className: 'flex flex-col items-center justify-center p-8' },
+                            React.createElement('div', { 
+                                className: 'w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4'
+                            }),
+                            React.createElement('p', {}, 'Loading channel data...')
+                        )
+                    );
+                }
+                
+                // Render the component
+                const rootElement = document.getElementById('channel-manager-root');
+                if (rootElement) {
+                    ReactDOM.createRoot(rootElement).render(React.createElement(ChannelManagerApp));
+                    
+                    // Initialize Lucide icons (will affect the entire page)
+                    createIcons();
+                } else {
+                    console.error("Channel manager root element not found");
+                }
+            } catch (error) {
+                console.error("Error initializing React component:", error);
+                document.getElementById('channel-manager-root').innerHTML = 
+                    '<div class="p-6"><h3>Error loading channel manager</h3><p>Please refresh the page or try again later.</p><p>Error details: ' + error.message + '</p></div>';
+            }
+        });
+    </script>
+    {% endif %}
+</body>
+</html>

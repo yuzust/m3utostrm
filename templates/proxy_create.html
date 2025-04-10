@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en" class="{{ theme }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M3U to STRM Converter - Create M3U Proxy</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="fade-in">
+    <div class="container">
+        <header class="app-header">
+            <div class="logo">
+                <i class="fas fa-film"></i> M3U to STRM
+            </div>
+            <nav class="nav-links">
+                <a href="{{ url_for('index') }}" class="nav-link">Home</a>
+                <a href="{{ url_for('status') }}" class="nav-link">Status</a>
+                <a href="{{ url_for('config_page') }}" class="nav-link">Settings</a>
+                <a href="{{ url_for('content_history') }}" class="nav-link">History</a>
+                <a href="{{ url_for('processing_page') }}" class="nav-link">Processing</a>
+                <a href="{{ url_for('providers_page') }}" class="nav-link">Providers</a>
+                <a href="{{ url_for('proxy_page') }}" class="nav-link">Proxy</a>
+                <a href="{{ url_for('diagnostics_page') }}" class="nav-link">Diagnostics</a>
+            </nav>
+        </header>
+        
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        <div class="alert alert-info">
+            <ul class="mb-0">
+                {% for message in messages %}
+                <li>{{ message }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        {% endwith %}
+        
+        <!-- Create New Proxy -->
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-plus"></i> Create New M3U Proxy
+                <a href="{{ url_for('proxy_page') }}" class="btn btn-secondary btn-sm" style="float: right;">
+                    <i class="fas fa-arrow-left"></i> Back
+                </a>
+            </div>
+            <div class="card-body">
+                <div class="info-box" style="margin-bottom: 20px;">
+                    <h3><i class="fas fa-info-circle"></i> Create M3U Proxy</h3>
+                    <p>Create a proxy for an existing M3U playlist from a URL. Once created, you can customize the playlist by optimizing channel names, renumbering channels, and more.</p>
+                </div>
+                
+                <div class="tab-selector">
+                    <div class="tab active" data-tab="url">
+                        <i class="fas fa-link"></i> M3U from URL
+                    </div>
+                    <div class="tab" data-tab="file">
+                        <i class="fas fa-file-upload"></i> Upload M3U File
+                    </div>
+                </div>
+                
+                <div class="tab-content">
+                    <!-- M3U from URL -->
+                    <div class="tab-pane active" id="url-tab">
+                        <form action="{{ url_for('proxy_create') }}" method="post" id="url-form">
+                            <div class="form-group">
+                                <label for="url" class="form-label">M3U URL:</label>
+                                <input type="url" class="form-control" id="url" name="url" placeholder="http://example.com/playlist.m3u" required>
+                                <small class="form-text">Enter the direct URL to your M3U playlist file</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="name" class="form-label">Proxy Name (optional):</label>
+                                <input type="text" class="form-control" id="name" name="name" placeholder="Provider name">
+                                <small class="form-text">A friendly name to identify this proxy</small>
+                            </div>
+                            
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="filter_vod" name="filter_vod" checked>
+                                <label class="form-check-label" for="filter_vod">Filter out VOD content (keep only live channels)</label>
+                                <small class="form-text">Removes movies and TV shows, keeping only live TV channels</small>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-primary" id="submit-url-btn">
+                                <i class="fas fa-cloud-download-alt"></i> Create Proxy
+                            </button>
+                        </form>
+                    </div>
+                    
+                    <!-- Upload M3U File -->
+                    <div class="tab-pane" id="file-tab">
+                        <form action="{{ url_for('proxy_create') }}" method="post" enctype="multipart/form-data" id="file-form">
+                            <div class="form-group">
+                                <label for="file" class="form-label">Select M3U File:</label>
+                                <input type="file" class="form-control" id="file" name="file" accept=".m3u" required>
+                                <small class="form-text">Select an M3U playlist file from your device</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="file_name" class="form-label">Proxy Name (optional):</label>
+                                <input type="text" class="form-control" id="file_name" name="name" placeholder="My Proxied Playlist">
+                                <small class="form-text">A friendly name to identify this proxy</small>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-primary" id="submit-file-btn">
+                                <i class="fas fa-upload"></i> Upload &amp; Create Proxy
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <style>
+        .tab-selector {
+            display: flex;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 20px;
+        }
+        
+        .tab {
+            padding: 10px 15px;
+            cursor: pointer;
+            opacity: 0.7;
+            font-weight: 500;
+            transition: opacity 0.2s ease, border-bottom 0.2s ease;
+        }
+        
+        .tab.active {
+            opacity: 1;
+            border-bottom: 2px solid var(--primary-color);
+        }
+        
+        .tab-content {
+            padding: 0;
+        }
+        
+        .tab-pane {
+            display: none;
+        }
+        
+        .tab-pane.active {
+            display: block;
+            animation: fadeIn 0.3s ease-out;
+        }
+    </style>
+    
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Tab functionality
+            const tabs = document.querySelectorAll('.tab');
+            const tabPanes = document.querySelectorAll('.tab-pane');
+            
+            tabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const tabId = this.getAttribute('data-tab');
+                    
+                    // Update active tab
+                    tabs.forEach(t => t.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // Update active tab pane
+                    tabPanes.forEach(pane => pane.classList.remove('active'));
+                    document.getElementById(tabId + '-tab').classList.add('active');
+                });
+            });
+            
+            // Form validation
+            const urlForm = document.getElementById('url-form');
+            const urlInput = document.getElementById('url');
+            const submitUrlBtn = document.getElementById('submit-url-btn');
+            
+            urlForm.addEventListener('submit', function(event) {
+                // Basic validation
+                if (!urlInput.value.trim()) {
+                    event.preventDefault();
+                    showNotification('Error', 'Please enter a valid URL', 'error');
+                    return false;
+                }
+                
+                if (!urlInput.value.trim().startsWith('http')) {
+                    event.preventDefault();
+                    showNotification('Error', 'URL must start with http:// or https://', 'error');
+                    return false;
+                }
+                
+                // Disable submit button to prevent double-submission
+                submitUrlBtn.disabled = true;
+                submitUrlBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating Proxy...';
+                
+                // Show notification
+                showNotification('Processing', 'Downloading and processing M3U from URL. This may take a few minutes.', 'info');
+                
+                // Allow form to submit
+                return true;
+            });
+            
+            // File form validation
+            const fileForm = document.getElementById('file-form');
+            const fileInput = document.getElementById('file');
+            const submitFileBtn = document.getElementById('submit-file-btn');
+            
+            fileForm.addEventListener('submit', function(event) {
+                // Basic validation
+                if (!fileInput.files || fileInput.files.length === 0) {
+                    event.preventDefault();
+                    showNotification('Error', 'Please select a file to upload', 'error');
+                    return false;
+                }
+                
+                // Validate file extension
+                const fileName = fileInput.files[0].name;
+                if (!fileName.toLowerCase().endsWith('.m3u')) {
+                    event.preventDefault();
+                    showNotification('Error', 'Only M3U files are supported', 'error');
+                    return false;
+                }
+                
+                // Disable submit button to prevent double-submission
+                submitFileBtn.disabled = true;
+                submitFileBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating Proxy...';
+                
+                // Show notification
+                showNotification('Processing', 'Uploading and processing M3U file. This may take a few minutes.', 'info');
+                
+                // Allow form to submit
+                return true;
+            });
+        });
+    </script>
+</body>
+</html>

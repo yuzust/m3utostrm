@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en" class="{{ theme }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M3U to STRM Converter - Status</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="fade-in">
+    <div class="container">
+        <header class="app-header">
+            <div class="logo">
+                <i class="fas fa-film"></i> M3U to STRM
+            </div>
+            <nav class="nav-links">
+                <a href="{{ url_for('index') }}" class="nav-link">Home</a>
+                <a href="{{ url_for('status') }}" class="nav-link">Status</a>
+                <a href="{{ url_for('config_page') }}" class="nav-link">Settings</a>
+                <a href="{{ url_for('content_history') }}" class="nav-link">History</a>
+                <a href="{{ url_for('processing_page') }}" class="nav-link">Processing</a>
+                <a href="{{ url_for('providers_page') }}" class="nav-link">Providers</a>
+                <a href="{{ url_for('diagnostics_page') }}" class="nav-link">Diagnostics</a>
+                <a href="{{ url_for('direct_url_check') }}" class="nav-link">URL Check</a>
+                <a href="{{ url_for('filter_settings') }}" class="nav-link">Filter Settings</a>
+            </nav>
+        </header>
+        
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        <div class="alert alert-info">
+            <ul class="mb-0">
+                {% for message in messages %}
+                <li>{{ message }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        {% endwith %}
+        
+        <!-- Stats Overview -->
+        <div class="row">
+            <div class="col">
+                <div class="card stat-card">
+                    <div class="stat-number">{{ movie_count }}</div>
+                    <div class="stat-label">Movies</div>
+                    <i class="fas fa-film" style="font-size: 1.5rem; margin-top: 10px; color: var(--primary-color);"></i>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card stat-card">
+                    <div class="stat-number">{{ tv_count }}</div>
+                    <div class="stat-label">TV Shows</div>
+                    <i class="fas fa-tv" style="font-size: 1.5rem; margin-top: 10px; color: var(--primary-color);"></i>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Content Location Info -->
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-folder"></i> Content Location
+            </div>
+            <div class="card-body">
+                <div class="info-box">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong>Current Path:</strong> {{ content_path }}
+                        </div>
+                        <button class="btn btn-secondary btn-sm" onclick="copyToClipboard('{{ content_path }}')">
+                            <i class="fas fa-copy"></i> Copy
+                        </button>
+                    </div>
+                </div>
+                <div style="margin-top: 15px;">
+                    <a href="{{ url_for('scan_content') }}" class="btn btn-primary">
+                        <i class="fas fa-sync-alt"></i> Scan Content Directory
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Recent Changes -->
+        {% if recent_changes %}
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-clock"></i> Recent Changes
+                <a href="{{ url_for('content_history') }}" class="btn btn-secondary btn-sm" style="float: right;">
+                    <i class="fas fa-history"></i> View All
+                </a>
+            </div>
+            <div class="card-body">
+                <div class="table-container">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Type</th>
+                                <th>Action</th>
+                                <th>Item</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for change in recent_changes %}
+                            <tr>
+                                <td>{{ change.timestamp.split(' ')[1] }}</td>
+                                <td>
+                                    <span class="badge {% if change.content_type == 'movie' %}bg-blue{% elif change.content_type == 'tv' %}bg-purple{% else %}bg-gray{% endif %}">
+                                        {{ change.content_type|upper }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge {% if change.action == 'added' %}bg-green{% elif change.action == 'removed' %}bg-red{% else %}bg-yellow{% endif %}">
+                                        {{ change.action|upper }}
+                                    </span>
+                                </td>
+                                <td>{{ change.item_name }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Scheduled Updates -->
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-calendar-check"></i> Scheduled M3U Updates
+            </div>
+            <div class="card-body">
+                {% if links %}
+                <div class="table-container">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>URL</th>
+                                <th>Last Check</th>
+                                <th>Next Check</th>
+                                <th>Frequency</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for link in links %}
+                            <tr>
+                                <td title="{{ link.url }}">{{ link.url[:30] + '...' if link.url|length > 33 else link.url }}</td>
+                                <td>{{ link.last_check }}</td>
+                                <td>{{ link.next_check }}</td>
+                                <td>{{ link.update_frequency }} hours</td>
+                                <td>
+                                    <div class="btn-group">
+                                        <a href="{{ url_for('check_now', url=link.url) }}" class="btn btn-primary btn-sm" title="Check Now">
+                                            <i class="fas fa-sync-alt"></i>
+                                        </a>
+                                        <button class="btn btn-danger btn-sm" onclick="confirmDelete('{{ url_for('remove_link', url=link.url) }}', 'Are you sure you want to remove this scheduled update?')" title="Remove">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="info-box" style="text-align: center;">
+                    <i class="fas fa-info-circle" style="font-size: 2rem; margin-bottom: 10px; color: var(--info-color);"></i>
+                    <p>No scheduled M3U updates.</p>
+                    <a href="{{ url_for('index') }}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Add M3U URL
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <style>
+        .badge {
+            padding: 5px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            display: inline-block;
+        }
+        
+        .bg-blue {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        
+        .bg-purple {
+            background-color: #9c27b0;
+            color: white;
+        }
+        
+        .bg-green {
+            background-color: var(--success-color);
+            color: white;
+        }
+        
+        .bg-red {
+            background-color: var(--danger-color);
+            color: white;
+        }
+        
+        .bg-yellow {
+            background-color: var(--warning-color);
+            color: black;
+        }
+        
+        .bg-gray {
+            background-color: var(--gray-color);
+            color: white;
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 5px;
+        }
+    </style>
+    
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

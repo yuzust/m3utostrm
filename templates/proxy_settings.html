@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en" class="{{ theme }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M3U to STRM Converter - M3U Proxy Settings</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="fade-in">
+    <div class="container">
+        <header class="app-header">
+            <div class="logo">
+                <i class="fas fa-film"></i> M3U to STRM
+            </div>
+            <nav class="nav-links">
+                <a href="{{ url_for('index') }}" class="nav-link">Home</a>
+                <a href="{{ url_for('status') }}" class="nav-link">Status</a>
+                <a href="{{ url_for('config_page') }}" class="nav-link">Settings</a>
+                <a href="{{ url_for('content_history') }}" class="nav-link">History</a>
+                <a href="{{ url_for('processing_page') }}" class="nav-link">Processing</a>
+                <a href="{{ url_for('providers_page') }}" class="nav-link">Providers</a>
+                <a href="{{ url_for('proxy_page') }}" class="nav-link">Proxy</a>
+                <a href="{{ url_for('diagnostics_page') }}" class="nav-link">Diagnostics</a>
+            </nav>
+        </header>
+        
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        <div class="alert alert-info">
+            <ul class="mb-0">
+                {% for message in messages %}
+                <li>{{ message }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        {% endwith %}
+        
+        <!-- Proxy Settings -->
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-cog"></i> M3U Proxy Settings
+                <a href="{{ url_for('proxy_page') }}" class="btn btn-secondary btn-sm" style="float: right;">
+                    <i class="fas fa-arrow-left"></i> Back
+                </a>
+            </div>
+            <div class="card-body">
+                <div class="info-box" style="margin-bottom: 20px;">
+                    <h3><i class="fas fa-info-circle"></i> About M3U Proxy Settings</h3>
+                    <p>These settings control how your proxied M3U playlists are served and accessed.</p>
+                </div>
+                
+                <div class="config-section">
+                    <div class="config-section-title">
+                        <i class="fas fa-server"></i> Server Configuration
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="server_host" class="form-label">Server Host:</label>
+                        <div class="input-with-button">
+                            <input type="text" class="form-control" id="server_host" value="{{ server_host }}" readonly>
+                            <button class="btn btn-secondary" onclick="copyToClipboard('{{ server_host }}')">
+                                <i class="fas fa-copy"></i> Copy
+                            </button>
+                        </div>
+                        <small class="form-text">The current server host address used for proxy URLs</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="custom_domain" class="form-label">Custom Domain (optional):</label>
+                        <input type="text" class="form-control" id="custom_domain" placeholder="example.com">
+                        <small class="form-text">If you're using a reverse proxy or custom domain, enter it here</small>
+                    </div>
+                    
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="use_https" checked>
+                        <label class="form-check-label" for="use_https">Use HTTPS for proxy URLs</label>
+                    </div>
+                </div>
+                
+                <div class="config-section">
+                    <div class="config-section-title">
+                        <i class="fas fa-link"></i> Example URLs
+                    </div>
+                    
+                    <div id="url-examples">
+                        <p><strong>Standard Proxy URL:</strong></p>
+                        <div class="code-block" id="standard-url">
+                            https://{{ server_host }}/proxy/m3u/example-id/playlist.m3u
+                        </div>
+                        
+                        <p><strong>Custom Domain URL:</strong></p>
+                        <div class="code-block" id="custom-url">
+                            https://example.com/proxy/m3u/example-id/playlist.m3u
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="config-section">
+                    <div class="config-section-title">
+                        <i class="fas fa-question-circle"></i> How to Use
+                    </div>
+                    
+                    <div class="info-box">
+                        <ol>
+                            <li>Create a new proxy by clicking "Create New Proxy" on the main proxy page.</li>
+                            <li>Customize your M3U playlist using the available tools (name optimization, channel numbering, filtering).</li>
+                            <li>Copy the proxy URL and use it in your media player or IPTV client.</li>
+                            <li>The proxied M3U will be served directly from this server, with all your customizations applied.</li>
+                        </ol>
+                    </div>
+                </div>
+                
+                <div class="config-section">
+                    <div class="config-section-title">
+                        <i class="fas fa-tools"></i> Advanced Settings
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="cache_duration" class="form-label">Cache Duration (hours):</label>
+                        <input type="number" class="form-control" id="cache_duration" value="24" min="0">
+                        <small class="form-text">How long to cache proxied M3U files before re-fetching from the source (0 to disable caching)</small>
+                    </div>
+                    
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="proxy_urls" checked>
+                        <label class="form-check-label" for="proxy_urls">Proxy URLs in M3U content</label>
+                        <small class="form-text">When enabled, stream URLs in the M3U will also be proxied through this server</small>
+                    </div>
+                </div>
+                
+                <button id="save-settings-btn" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Save Settings
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <style>
+        .input-with-button {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .code-block {
+            background-color: var(--input-bg);
+            padding: 10px 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            margin-bottom: 15px;
+            word-break: break-all;
+        }
+    </style>
+    
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const customDomainInput = document.getElementById('custom_domain');
+            const useHttpsCheckbox = document.getElementById('use_https');
+            const standardUrlDiv = document.getElementById('standard-url');
+            const customUrlDiv = document.getElementById('custom-url');
+            
+            // Update example URLs when inputs change
+            function updateExampleUrls() {
+                const protocol = useHttpsCheckbox.checked ? 'https' : 'http';
+                const serverHost = '{{ server_host }}';
+                const customDomain = customDomainInput.value.trim();
+                
+                standardUrlDiv.textContent = `${protocol}://${serverHost}/proxy/m3u/example-id/playlist.m3u`;
+                
+                if (customDomain) {
+                    customUrlDiv.textContent = `${protocol}://${customDomain}/proxy/m3u/example-id/playlist.m3u`;
+                    customUrlDiv.parentElement.style.display = 'block';
+                } else {
+                    customUrlDiv.textContent = 'Enter a custom domain above to see an example URL';
+                    customUrlDiv.parentElement.style.display = 'block';
+                }
+            }
+            
+            customDomainInput.addEventListener('input', updateExampleUrls);
+            useHttpsCheckbox.addEventListener('change', updateExampleUrls);
+            
+            // Save settings button
+            const saveSettingsBtn = document.getElementById('save-settings-btn');
+            saveSettingsBtn.addEventListener('click', function() {
+                // In a real implementation, this would save the settings to the server
+                showNotification('Success', 'Proxy settings saved successfully', 'success');
+            });
+            
+            // Initialize example URLs
+            updateExampleUrls();
+        });
+    </script>
+</body>
+</html>

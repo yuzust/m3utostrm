@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en" class="{{ theme }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M3U to STRM Converter - Processing Status</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="fade-in">
+    <div class="container">
+        <header class="app-header">
+            <div class="logo">
+                <i class="fas fa-film"></i> M3U to STRM
+            </div>
+            <nav class="nav-links">
+                <a href="{{ url_for('index') }}" class="nav-link">Home</a>
+                <a href="{{ url_for('status') }}" class="nav-link">Status</a>
+                <a href="{{ url_for('config_page') }}" class="nav-link">Settings</a>
+                <a href="{{ url_for('content_history') }}" class="nav-link">History</a>
+                <a href="{{ url_for('processing_page') }}" class="nav-link">Processing</a>
+                <a href="{{ url_for('providers_page') }}" class="nav-link">Providers</a>
+                <a href="{{ url_for('diagnostics_page') }}" class="nav-link">Diagnostics</a>
+                <a href="{{ url_for('direct_url_check') }}" class="nav-link">URL Check</a>
+                <a href="{{ url_for('filter_settings') }}" class="nav-link">Filter Settings</a>
+            </nav>
+        </header>
+        
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        <div class="alert alert-info">
+            <ul class="mb-0">
+                {% for message in messages %}
+                <li>{{ message }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        {% endwith %}
+        
+        <!-- Notifications Area -->
+        <div id="notifications-container"></div>
+        
+        <!-- Active Jobs -->
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-sync-alt fa-spin"></i> Active Processing Jobs
+                <button id="refresh-btn" class="btn btn-secondary btn-sm" style="float: right;">
+                    <i class="fas fa-sync-alt"></i> Refresh
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="active-jobs-container">
+                    {% if active_jobs %}
+                    <div class="table-container">
+                        <table class="table" id="active-jobs-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Description</th>
+                                    <th>Status</th>
+                                    <th>Start Time</th>
+                                    <th>Progress</th>
+                                    <th>Current Item</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for job in active_jobs %}
+                                <tr data-job-id="{{ job.id }}">
+                                    <td>{{ job.id[:8] }}...</td>
+                                    <td>{{ job.description }}</td>
+                                    <td>
+                                        <span class="badge {{ 'bg-green' if job.status == 'running' else 'bg-yellow' if job.status == 'stuck' else 'bg-gray' }}">
+                                            {{ job.status|upper }}
+                                        </span>
+                                    </td>
+                                    <td>{{ job.start_time }}</td>
+                                    <td>
+                                        <div class="progress-container">
+                                            <div class="progress-bar" style="width: {{ (job.items_processed / 100) * 100 if job.items_processed < 100 else 100 }}%"></div>
+                                            <span class="progress-text">{{ job.items_processed }} items</span>
+                                        </div>
+                                    </td>
+                                    <td>{{ job.current_item }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="info-box" id="no-active-jobs">
+                        <i class="fas fa-info-circle"></i> No active processing jobs.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Job History -->
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-history"></i> Processing History
+            </div>
+            <div class="card-body">
+                <div id="job-history-container">
+                    {% if job_history %}
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Description</th>
+                                    <th>Status</th>
+                                    <th>Start Time</th>
+                                    <th>End Time</th>
+                                    <th>Processed</th>
+                                    <th>Duration</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for job in job_history %}
+                                <tr>
+                                    <td>{{ job.id[:8] }}...</td>
+                                    <td>{{ job.description }}</td>
+                                    <td>
+                                        <span class="badge {{ 'bg-green' if job.status == 'completed' else 'bg-red' if job.status == 'error' else 'bg-gray' }}">
+                                            {{ job.status|upper }}
+                                        </span>
+                                    </td>
+                                    <td>{{ job.start_time }}</td>
+                                    <td>{{ job.end_time }}</td>
+                                    <td>{{ job.items_processed }} items</td>
+                                    <td>{{ job.elapsed_seconds // 60 }}m {{ job.elapsed_seconds % 60 }}s</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="info-box">
+                        <i class="fas fa-info-circle"></i> No processing history.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <style>
+        .badge {
+            padding: 5px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            display: inline-block;
+        }
+        
+        .progress-container {
+            width: 100%;
+            height: 20px;
+            background-color: var(--border-color);
+            border-radius: 4px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background-color: var(--primary-color);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+        
+        .progress-text {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-color);
+            font-size: 0.8rem;
+        }
+        
+        #notifications-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            max-width: 350px;
+            max-height: 80vh;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .notification {
+            padding: 15px;
+            border-radius: 8px;
+            background-color: var(--card-bg);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            animation: slideIn 0.3s ease-out;
+            border-left: 4px solid;
+            position: relative;
+        }
+        
+        .notification.info {
+            border-left-color: var(--info-color);
+        }
+        
+        .notification.success {
+            border-left-color: var(--success-color);
+        }
+        
+        .notification.warning {
+            border-left-color: var(--warning-color);
+        }
+        
+        .notification.error {
+            border-left-color: var(--danger-color);
+        }
+        
+        .notification-title {
+            font-weight: 600;
+            margin-bottom: 5px;
+            padding-right: 20px;
+        }
+        
+        .notification-message {
+            font-size: 0.9rem;
+            word-break: break-word;
+        }
+        
+        .notification-close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            color: var(--text-color);
+            opacity: 0.5;
+            cursor: pointer;
+            padding: 0;
+            font-size: 1rem;
+        }
+        
+        .notification-close:hover {
+            opacity: 1;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+            }
+            to {
+                opacity: 0;
+            }
+        }
+    </style>
+    
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Connect to SSE endpoint
+            const evtSource = new EventSource("{{ url_for('events') }}");
+            
+            // Listen for notifications
+            evtSource.addEventListener("notification", function(e) {
+                const data = JSON.parse(e.data);
+                showNotification(data.title, data.message, data.type, data.details);
+            });
+            
+            // Listen for status updates
+            evtSource.addEventListener("status_update", function(e) {
+                const data = JSON.parse(e.data);
+                updateJobStatus(data);
+            });
+            
+            // Handle connection
+            evtSource.addEventListener("connected", function(e) {
+                console.log("SSE connection established");
+            });
+            
+            // Handle errors
+            evtSource.onerror = function() {
+                console.error("SSE connection error");
+                // Try to reconnect after 5 seconds
+                setTimeout(function() {
+                    evtSource.close();
+                    // Reconnection will happen automatically
+                }, 5000);
+            };
+            
+            // Set up periodic refresh
+            const refreshInterval = setInterval(refreshActiveJobs, 10000);
+            
+            // Manual refresh button
+            document.getElementById('refresh-btn').addEventListener('click', function() {
+                refreshActiveJobs();
+            });
+            
+            // Initial refresh
+            refreshActiveJobs();
+        });
+        
+        function showNotification(title, message, type = "info", details = null) {
+            const container = document.getElementById('notifications-container');
+            
+            // Create notification element
+            const notif = document.createElement('div');
+            notif.className = `notification ${type}`;
+            
+            // Add content
+            notif.innerHTML = `
+                <div class="notification-title">${title}</div>
+                <div class="notification-message">${message}</div>
+                <button class="notification-close">&times;</button>
+            `;
+            
+            // Add details if provided
+            if (details) {
+                const detailsEl = document.createElement('div');
+                detailsEl.className = 'notification-details';
+                detailsEl.innerHTML = '<hr>';
+                
+                for (const [key, value] of Object.entries(details)) {
+                    detailsEl.innerHTML += `<div><strong>${key}:</strong> ${value}</div>`;
+                }
+                
+                notif.appendChild(detailsEl);
+            }
+            
+            // Add to container
+            container.appendChild(notif);
+            
+            // Set up close button
+            notif.querySelector('.notification-close').addEventListener('click', function() {
+                closeNotification(notif);
+            });
+            
+            // Auto-close after 10 seconds for non-error notifications
+            if (type !== 'error') {
+                setTimeout(function() {
+                    closeNotification(notif);
+                }, 10000);
+            }
+        }
+        
+        function closeNotification(notif) {
+            notif.style.animation = 'fadeOut 0.3s ease-out forwards';
+            setTimeout(function() {
+                notif.remove();
+            }, 300);
+        }
+        
+        function refreshActiveJobs() {
+            fetch("{{ url_for('active_jobs') }}")
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        updateActiveJobsTable(data.data);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching active jobs:', error);
+                });
+        }
+        
+        function updateActiveJobsTable(jobs) {
+            const container = document.getElementById('active-jobs-container');
+            
+            if (jobs.length === 0) {
+                container.innerHTML = `
+                    <div class="info-box" id="no-active-jobs">
+                        <i class="fas fa-info-circle"></i> No active processing jobs.
+                    </div>
+                `;
+                return;
+            }
+            
+            // Check if table exists, create if not
+            let table = container.querySelector('#active-jobs-table');
+            if (!table) {
+                container.innerHTML = `
+                    <div class="table-container">
+                        <table class="table" id="active-jobs-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Description</th>
+                                    <th>Status</th>
+                                    <th>Start Time</th>
+                                    <th>Progress</th>
+                                    <th>Current Item</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                `;
+                table = container.querySelector('#active-jobs-table');
+            }
+            
+            const tbody = table.querySelector('tbody');
+            
+            // Update existing rows or add new ones
+            jobs.forEach(job => {
+                let row = tbody.querySelector(`tr[data-job-id="${job.id}"]`);
+                
+                if (!row) {
+                    // Create new row
+                    row = document.createElement('tr');
+                    row.setAttribute('data-job-id', job.id);
+                    tbody.appendChild(row);
+                }
+                
+                // Update row content
+                const statusClass = job.status === 'running' ? 'bg-green' : 
+                                    job.status === 'stuck' ? 'bg-yellow' : 'bg-gray';
+                
+                row.innerHTML = `
+                    <td>${job.id.substring(0, 8)}...</td>
+                    <td>${job.description}</td>
+                    <td>
+                        <span class="badge ${statusClass}">
+                            ${job.status.toUpperCase()}
+                        </span>
+                    </td>
+                    <td>${job.start_time}</td>
+                    <td>
+                        <div class="progress-container">
+                            <div class="progress-bar" style="width: ${(job.items_processed / 100) * 100 > 100 ? 100 : (job.items_processed / 100) * 100}%"></div>
+                            <span class="progress-text">${job.items_processed} items</span>
+                        </div>
+                    </td>
+                    <td>${job.current_item || ''}</td>
+                `;
+            });
+            
+            // Remove rows for jobs that are no longer active
+            const currentJobIds = jobs.map(job => job.id);
+            const rows = tbody.querySelectorAll('tr');
+            
+            rows.forEach(row => {
+                const jobId = row.getAttribute('data-job-id');
+                if (!currentJobIds.includes(jobId)) {
+                    row.remove();
+                }
+            });
+        }
+        
+        function updateJobStatus(data) {
+            // Update the progress bar for a specific job
+            const container = document.getElementById('active-jobs-container');
+            const table = container.querySelector('#active-jobs-table');
+            
+            if (!table) return;
+            
+            const rows = table.querySelectorAll('tbody tr');
+            rows.forEach(row => {
+                if (row.getAttribute('data-job-id') === data.jobId) {
+                    // Update progress
+                    const progressBar = row.querySelector('.progress-bar');
+                    const progressText = row.querySelector('.progress-text');
+                    
+                    if (progressBar && progressText) {
+                        progressBar.style.width = `${(data.processed / 100) * 100 > 100 ? 100 : (data.processed / 100) * 100}%`;
+                        progressText.textContent = `${data.processed} items`;
+                    }
+                    
+                    // Update current item
+                    const currentItemCell = row.querySelector('td:last-child');
+                    if (currentItemCell && data.currentItem) {
+                        currentItemCell.textContent = data.currentItem;
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>

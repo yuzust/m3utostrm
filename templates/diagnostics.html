@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en" class="{{ theme }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M3U to STRM Converter - Diagnostics</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="fade-in">
+    <div class="container">
+        <header class="app-header">
+            <div class="logo">
+                <i class="fas fa-film"></i> M3U to STRM
+            </div>
+            <nav class="nav-links">
+                <a href="{{ url_for('index') }}" class="nav-link">Home</a>
+                <a href="{{ url_for('status') }}" class="nav-link">Status</a>
+                <a href="{{ url_for('config_page') }}" class="nav-link">Settings</a>
+                <a href="{{ url_for('content_history') }}" class="nav-link">History</a>
+                <a href="{{ url_for('processing_page') }}" class="nav-link">Processing</a>
+                <a href="{{ url_for('providers_page') }}" class="nav-link">Providers</a>
+                <a href="{{ url_for('diagnostics_page') }}" class="nav-link">Diagnostics</a>
+                <a href="{{ url_for('direct_url_check') }}" class="nav-link">URL Check</a>
+                <a href="{{ url_for('filter_settings') }}" class="nav-link">Filter Settings</a>
+            </nav>
+        </header>
+        
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        <div class="alert alert-info">
+            <ul class="mb-0">
+                {% for message in messages %}
+                <li>{{ message }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        {% endwith %}
+        
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-stethoscope"></i> M3U Processing Diagnostics
+            </div>
+            <div class="card-body">
+                <div class="info-box" style="margin-bottom: 20px;">
+                    <p>This tool helps diagnose M3U processing issues. Enter an M3U URL below to test the download and processing steps.</p>
+                </div>
+                
+                <div class="form-group">
+                    <label for="test-url" class="form-label">M3U URL:</label>
+                    <input type="url" class="form-control" id="test-url" placeholder="http://example.com/playlist.m3u">
+                </div>
+                
+                <button id="test-btn" class="btn btn-primary">
+                    <i class="fas fa-vial"></i> Test Processing
+                </button>
+                
+                <div id="loading" style="display: none; text-align: center; margin-top: 20px;">
+                    <i class="fas fa-spinner fa-spin" style="font-size: 2rem; margin-bottom: 10px;"></i>
+                    <p>Testing M3U processing...</p>
+                </div>
+                
+                <div id="results" style="display: none; margin-top: 20px;">
+                    <h3 id="results-title">Test Results</h3>
+                    
+                    <div class="config-section">
+                        <div class="config-section-title">
+                            <i class="fas fa-download"></i> Download Phase
+                        </div>
+                        <div id="download-results" class="info-box"></div>
+                    </div>
+                    
+                    <div class="config-section">
+                        <div class="config-section-title">
+                            <i class="fas fa-file-alt"></i> File Information
+                        </div>
+                        <div id="file-results" class="info-box"></div>
+                    </div>
+                    
+                    <div class="config-section">
+                        <div class="config-section-title">
+                            <i class="fas fa-cogs"></i> Processing Phase
+                        </div>
+                        <div id="processing-results" class="info-box"></div>
+                    </div>
+                    
+                    <div class="config-section">
+                        <div class="config-section-title">
+                            <i class="fas fa-code"></i> Content Sample
+                        </div>
+                        <pre id="content-sample" class="info-box" style="white-space: pre-wrap; word-break: break-word;"></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const testBtn = document.getElementById('test-btn');
+            const testUrlInput = document.getElementById('test-url');
+            const loadingSection = document.getElementById('loading');
+            const resultsSection = document.getElementById('results');
+            const resultsTitle = document.getElementById('results-title');
+            const downloadResults = document.getElementById('download-results');
+            const fileResults = document.getElementById('file-results');
+            const processingResults = document.getElementById('processing-results');
+            const contentSample = document.getElementById('content-sample');
+            
+            testBtn.addEventListener('click', function() {
+                const url = testUrlInput.value.trim();
+                if (!url) {
+                    showNotification('Error', 'Please enter a valid URL', 'error');
+                    return;
+                }
+                
+                // Show loading
+                loadingSection.style.display = 'block';
+                resultsSection.style.display = 'none';
+                testBtn.disabled = true;
+                
+                // Send test request
+                fetch('/test_m3u_url', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ url: url })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    // Hide loading
+                    loadingSection.style.display = 'none';
+                    resultsSection.style.display = 'block';
+                    testBtn.disabled = false;
+                    
+                    // Reset results areas
+                    downloadResults.innerHTML = '';
+                    fileResults.innerHTML = '';
+                    processingResults.innerHTML = '';
+                    contentSample.innerHTML = '';
+                    
+                    if (data.status === 'success') {
+                        // Success case
+                        resultsTitle.innerHTML = '<i class="fas fa-check-circle" style="color: var(--success-color);"></i> Test Completed Successfully';
+                        
+                        // Download results
+                        downloadResults.innerHTML = `
+                            <p><strong>Status:</strong> <span style="color: var(--success-color);">Success</span></p>
+                            <p><strong>Message:</strong> ${data.download.message}</p>
+                            <p><strong>Size:</strong> ${data.download.size || 'Not reported'} bytes</p>
+                            <p><strong>Path:</strong> ${data.download.path}</p>
+                        `;
+                        
+                        // File info
+                        fileResults.innerHTML = `
+                            <p><strong>Path:</strong> ${data.file_info.path}</p>
+                            <p><strong>Size:</strong> ${data.file_info.size} bytes</p>
+                        `;
+                        
+                        // Process results
+                        if (data.process_result.status === 'success') {
+                            processingResults.innerHTML = `
+                                <p><strong>Status:</strong> <span style="color: var(--success-color);">Success</span></p>
+                                <p><strong>Message:</strong> ${data.process_result.message}</p>
+                                <p><strong>Movies Processed:</strong> ${data.process_result.processed_movies}</p>
+                                <p><strong>TV Shows Processed:</strong> ${data.process_result.processed_tv}</p>
+                                <p><strong>Skipped Items:</strong> ${data.process_result.skipped}</p>
+                                <p><strong>Total Movies:</strong> ${data.process_result.movies}</p>
+                                <p><strong>Total TV Shows:</strong> ${data.process_result.tv_shows}</p>
+                            `;
+                        } else {
+                            processingResults.innerHTML = `
+                                <p><strong>Status:</strong> <span style="color: var(--danger-color);">Error</span></p>
+                                <p><strong>Message:</strong> ${data.process_result.message}</p>
+                            `;
+                        }
+                        
+                        // Content sample
+                        contentSample.textContent = data.file_info.content_sample;
+                        
+                    } else {
+                        // Error case
+                        resultsTitle.innerHTML = '<i class="fas fa-times-circle" style="color: var(--danger-color);"></i> Test Failed';
+                        
+                        // Show phase where it failed
+                        const phase = data.phase || 'unknown';
+                        
+                        if (phase === 'download') {
+                            downloadResults.innerHTML = `
+                                <p><strong>Status:</strong> <span style="color: var(--danger-color);">Error</span></p>
+                                <p><strong>Message:</strong> ${data.message}</p>
+                            `;
+                        } else if (phase === 'verification' || phase === 'file_reading') {
+                            downloadResults.innerHTML = `
+                                <p><strong>Status:</strong> <span style="color: var(--success-color);">Success</span></p>
+                                <p><strong>Message:</strong> Download completed, but file verification failed</p>
+                            `;
+                            
+                            fileResults.innerHTML = `
+                                <p><strong>Status:</strong> <span style="color: var(--danger-color);">Error</span></p>
+                                <p><strong>Message:</strong> ${data.message}</p>
+                            `;
+                        } else if (phase === 'processing') {
+                            downloadResults.innerHTML = `
+                                <p><strong>Status:</strong> <span style="color: var(--success-color);">Success</span></p>
+                                <p><strong>Message:</strong> ${data.download.message}</p>
+                            `;
+                            
+                            fileResults.innerHTML = `
+                                <p><strong>Path:</strong> ${data.file_info.path}</p>
+                                <p><strong>Size:</strong> ${data.file_info.size} bytes</p>
+                            `;
+                            
+                            processingResults.innerHTML = `
+                                <p><strong>Status:</strong> <span style="color: var(--danger-color);">Error</span></p>
+                                <p><strong>Message:</strong> ${data.message}</p>
+                            `;
+                            
+                            // Content sample
+                            contentSample.textContent = data.file_info.content_sample;
+                        } else {
+                            // Unknown error
+                            downloadResults.innerHTML = `
+                                <p><strong>Status:</strong> <span style="color: var(--danger-color);">Error</span></p>
+                                <p><strong>Message:</strong> ${data.message}</p>
+                                <p><strong>Phase:</strong> ${phase}</p>
+                            `;
+                        }
+                    }
+                })
+                .catch(error => {
+                    // Hide loading
+                    loadingSection.style.display = 'none';
+                    testBtn.disabled = false;
+                    
+                    showNotification('Error', `Test failed: ${error.message}`, 'error');
+                });
+            });
+        });
+    </script>
+</body>
+</html>

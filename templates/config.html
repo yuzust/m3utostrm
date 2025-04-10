@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en" class="{{ theme }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M3U to STRM Converter - Settings</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="fade-in">
+    <div class="container">
+        <header class="app-header">
+            <div class="logo">
+                <i class="fas fa-film"></i> M3U to STRM
+            </div>
+            <nav class="nav-links">
+                <a href="{{ url_for('index') }}" class="nav-link">Home</a>
+                <a href="{{ url_for('status') }}" class="nav-link">Status</a>
+                <a href="{{ url_for('config_page') }}" class="nav-link">Settings</a>
+                <a href="{{ url_for('content_history') }}" class="nav-link">History</a>
+                <a href="{{ url_for('processing_page') }}" class="nav-link">Processing</a>
+                <a href="{{ url_for('providers_page') }}" class="nav-link">Providers</a>
+                <a href="{{ url_for('diagnostics_page') }}" class="nav-link">Diagnostics</a>
+                <a href="{{ url_for('direct_url_check') }}" class="nav-link">URL Check</a>
+                <a href="{{ url_for('filter_settings') }}" class="nav-link">Filter Settings</a>
+            </nav>
+        </header>
+        
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        <div class="alert alert-info">
+            <ul class="mb-0">
+                {% for message in messages %}
+                <li>{{ message }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        {% endwith %}
+        
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-cog"></i> Settings
+            </div>
+            <div class="card-body">
+                <form action="{{ url_for('save_config_route') }}" method="post">
+                    <!-- UI Theme Settings -->
+                    <div class="config-section">
+                        <div class="config-section-title">
+                            <i class="fas fa-palette"></i> Theme Settings
+                        </div>
+                        <div class="form-group" style="display: flex; align-items: center;">
+                            <label class="theme-switch">
+                                <input type="checkbox" id="theme-toggle" name="ui_theme" value="dark" {% if config.ui_theme == 'dark' %}checked{% endif %}>
+                                <span class="slider"></span>
+                            </label>
+                            <span class="theme-icon">
+                                <i class="fas {% if config.ui_theme == 'dark' %}fa-moon{% else %}fa-sun{% endif %}"></i>
+                            </span>
+                            <span>{{ 'Dark' if config.ui_theme == 'dark' else 'Light' }} Mode</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Output Settings -->
+                    <div class="config-section">
+                        <div class="config-section-title">
+                            <i class="fas fa-folder-open"></i> Content Settings
+                        </div>
+                        <div class="form-group">
+                            <label for="output_path" class="form-label">Content Output Path:</label>
+                            <input type="text" class="form-control" id="output_path" name="output_path" value="{{ config.output_path }}">
+                            <small class="form-text">Directory where your content will be stored. Must be an existing directory.</small>
+                        </div>
+                    </div>
+                    
+                    <!-- Content Detection Settings -->
+                    <div class="config-section">
+                        <div class="config-section-title">
+                            <i class="fas fa-binoculars"></i> Content Detection Settings
+                        </div>
+                        <div class="form-group">
+                            <label for="movie_keywords" class="form-label">Movie Keywords:</label>
+                            <input type="text" class="form-control" id="movie_keywords" name="movie_keywords" value="{{ config.movie_keywords|join(', ') }}">
+                            <small class="form-text">Comma-separated keywords to help identify movies (e.g., movie, film, feature)</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="tv_keywords" class="form-label">TV Show Keywords:</label>
+                            <input type="text" class="form-control" id="tv_keywords" name="tv_keywords" value="{{ config.tv_keywords|join(', ') }}">
+                            <small class="form-text">Comma-separated keywords to help identify TV shows (e.g., tv, show, series, episode)</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="language_filter" class="form-label">Language Filter:</label>
+                            <input type="text" class="form-control" id="language_filter" name="language_filter" value="{{ config.language_filter }}">
+                            <small class="form-text">Language prefix to filter for (e.g., EN for English)</small>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="skip_non_english" name="skip_non_english" {% if config.skip_non_english %}checked{% endif %}>
+                            <label class="form-check-label" for="skip_non_english">Skip content not matching language filter</label>
+                        </div>
+                    </div>
+                    
+                    <!-- Update Settings -->
+                    <div class="config-section">
+                        <div class="config-section-title">
+                            <i class="fas fa-sync-alt"></i> Update Settings
+                        </div>
+                        <div class="form-group">
+                            <label for="update_frequency" class="form-label">Update Frequency (hours):</label>
+                            <input type="number" class="form-control" id="update_frequency" name="update_frequency" value="{{ config.update_frequency }}" min="1">
+                            <small class="form-text">How often to check M3U URLs for updates (in hours)</small>
+                        </div>
+                    </div>
+                    
+                    <!-- Notification Settings -->
+                    <div class="config-section">
+                        <div class="config-section-title">
+                            <i class="fas fa-bell"></i> Notification Settings
+                        </div>
+                        <div class="form-check mb-3">
+                            <input type="checkbox" class="form-check-input" id="notifications_enabled" name="notifications_enabled" {% if config.notifications_enabled %}checked{% endif %}>
+                            <label class="form-check-label" for="notifications_enabled">Enable Discord Notifications</label>
+                        </div>
+                        <div class="form-group">
+                            <label for="discord_webhook_url" class="form-label">Discord Webhook URL:</label>
+                            <div class="d-flex">
+                                <input type="text" class="form-control" id="discord_webhook_url" name="discord_webhook_url" value="{{ config.discord_webhook_url }}">
+                                <button type="button" id="test-webhook" class="btn btn-secondary" style="margin-left: 10px;">Test</button>
+                            </div>
+                            <small class="form-text">Discord webhook URL for notifications about content changes</small>
+                            <div id="webhook-result" class="mt-3" style="display: none;"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Logging Settings -->
+                    <div class="config-section">
+                        <div class="config-section-title">
+                            <i class="fas fa-file-alt"></i> Logging Settings
+                        </div>
+                        <div class="form-group">
+                            <label for="log_level" class="form-label">Log Level:</label>
+                            <select class="form-control" id="log_level" name="log_level">
+                                <option value="OFF" {% if config.log_level == 'OFF' %}selected{% endif %}>OFF - No logging</option>
+                                <option value="MINIMUM" {% if config.log_level == 'MINIMUM' %}selected{% endif %}>MINIMUM - Error messages only</option>
+                                <option value="NORMAL" {% if config.log_level == 'NORMAL' %}selected{% endif %}>NORMAL - Standard logging</option>
+                                <option value="DEBUG" {% if config.log_level == 'DEBUG' %}selected{% endif %}>DEBUG - Detailed logging</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Save Settings
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Test webhook button functionality
+            const testButton = document.getElementById('test-webhook');
+            const webhookInput = document.getElementById('discord_webhook_url');
+            const resultDiv = document.getElementById('webhook-result');
+            
+            testButton.addEventListener('click', function() {
+                const webhookUrl = webhookInput.value.trim();
+                if (!webhookUrl) {
+                    resultDiv.innerHTML = '<div class="alert alert-danger">Please enter a webhook URL first</div>';
+                    resultDiv.style.display = 'block';
+                    return;
+                }
+                
+                // Show loading status
+                resultDiv.innerHTML = '<div class="alert alert-info">Testing webhook...</div>';
+                resultDiv.style.display = 'block';
+                
+                // Send test request
+                fetch('/test_webhook', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: 'webhook_url=' + encodeURIComponent(webhookUrl)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        resultDiv.innerHTML = '<div class="alert alert-success">' + data.message + '</div>';
+                    } else {
+                        resultDiv.innerHTML = '<div class="alert alert-danger">' + data.message + '</div>';
+                    }
+                })
+                .catch(error => {
+                    resultDiv.innerHTML = '<div class="alert alert-danger">Error testing webhook: ' + error.message + '</div>';
+                });
+            });
+            
+            // Toggle Discord webhook URL field based on checkbox
+            const notificationsCheckbox = document.getElementById('notifications_enabled');
+            const webhookUrlField = document.getElementById('discord_webhook_url').parentNode.parentNode;
+            
+            function updateWebhookVisibility() {
+                webhookUrlField.style.opacity = notificationsCheckbox.checked ? '1' : '0.5';
+                webhookUrlField.querySelector('input').disabled = !notificationsCheckbox.checked;
+                testButton.disabled = !notificationsCheckbox.checked;
+            }
+            
+            notificationsCheckbox.addEventListener('change', updateWebhookVisibility);
+            updateWebhookVisibility();
+        });
+    </script>
+</body>
+</html>

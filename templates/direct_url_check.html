@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en" class="{{ theme }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M3U to STRM Converter - Direct URL Check</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="fade-in">
+    <div class="container">
+        <header class="app-header">
+            <div class="logo">
+                <i class="fas fa-film"></i> M3U to STRM
+            </div>
+            <nav class="nav-links">
+                <a href="{{ url_for('index') }}" class="nav-link">Home</a>
+                <a href="{{ url_for('status') }}" class="nav-link">Status</a>
+                <a href="{{ url_for('config_page') }}" class="nav-link">Settings</a>
+                <a href="{{ url_for('content_history') }}" class="nav-link">History</a>
+                <a href="{{ url_for('processing_page') }}" class="nav-link">Processing</a>
+                <a href="{{ url_for('providers_page') }}" class="nav-link">Providers</a>
+                <a href="{{ url_for('diagnostics_page') }}" class="nav-link">Diagnostics</a>
+                <a href="{{ url_for('direct_url_check') }}" class="nav-link">URL Check</a>
+                <a href="{{ url_for('filter_settings') }}" class="nav-link">Filter Settings</a>
+            </nav>
+        </header>
+        
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-link"></i> Direct URL Check
+            </div>
+            <div class="card-body">
+                <div class="info-box" style="margin-bottom: 20px;">
+                    <p>This tool checks if a URL is directly accessible and provides information about the server response. Use this to diagnose issues with M3U URLs.</p>
+                </div>
+                
+                <form action="{{ url_for('direct_url_check') }}" method="post">
+                    <div class="form-group">
+                        <label for="url" class="form-label">URL to Check:</label>
+                        <input type="url" class="form-control" id="url" name="url" placeholder="http://example.com/playlist.m3u" value="{{ url }}" required>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-search"></i> Check URL
+                    </button>
+                </form>
+                
+                {% if result %}
+                <div class="results-section" style="margin-top: 30px;">
+                    <h3>
+                        {% if result.status == 'success' %}
+                        <i class="fas fa-check-circle" style="color: var(--success-color);"></i> 
+                        {% else %}
+                        <i class="fas fa-times-circle" style="color: var(--danger-color);"></i> 
+                        {% endif %}
+                        Connection Results
+                    </h3>
+                    
+                    <div class="config-section">
+                        <div class="config-section-title">
+                            <i class="fas fa-info-circle"></i> Basic Information
+                        </div>
+                        <div class="info-box">
+                            <p><strong>Status:</strong> 
+                                {% if result.status == 'success' %}
+                                <span style="color: var(--success-color);">Success</span>
+                                {% else %}
+                                <span style="color: var(--danger-color);">Failed</span>
+                                {% endif %}
+                            </p>
+                            <p><strong>Message:</strong> {{ result.message }}</p>
+                            <p><strong>URL:</strong> {{ result.url }}</p>
+                            
+                            {% if result.status == 'success' %}
+                            <p><strong>Response Time:</strong> {{ result.response_time }}</p>
+                            <p><strong>Is M3U File:</strong> 
+                                {% if result.is_m3u %}
+                                <span style="color: var(--success-color);">Yes</span>
+                                {% else %}
+                                <span style="color: var(--danger-color);">No (EXTM3U tag not found)</span>
+                                {% endif %}
+                            </p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    {% if result.status == 'success' %}
+                    <div class="config-section">
+                        <div class="config-section-title">
+                            <i class="fas fa-server"></i> Ping Results
+                        </div>
+                        <div class="info-box">
+                            <pre style="white-space: pre-wrap; word-break: break-word;">{{ result.ping_result }}</pre>
+                        </div>
+                    </div>
+                    
+                    <div class="config-section">
+                        <div class="config-section-title">
+                            <i class="fas fa-code"></i> Content Sample
+                        </div>
+                        <pre style="background-color: var(--card-bg); padding: 15px; border-radius: 8px; white-space: pre-wrap; word-break: break-word; max-height: 300px; overflow: auto; border: 1px solid var(--border-color);">{{ result.content_sample }}</pre>
+                    </div>
+                    
+                    <div class="config-section">
+                        <div class="config-section-title">
+                            <i class="fas fa-exchange-alt"></i> HTTP Headers
+                        </div>
+                        <div class="info-box">
+                            <pre style="white-space: pre-wrap; word-break: break-word;">{% for key, value in result.headers.items() %}{{ key }}: {{ value }}
+{% endfor %}</pre>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="config-section">
+                        <div class="config-section-title">
+                            <i class="fas fa-lightbulb"></i> Recommendations
+                        </div>
+                        <div class="info-box">
+                            {% if result.status == 'success' %}
+                                {% if result.is_m3u %}
+                                <p>✅ The URL appears to be a valid M3U file.</p>
+                                <p>🔍 <strong>If you're still having issues:</strong></p>
+                                <ul>
+                                    <li>Try increasing the application timeout - the server took {{ result.response_time }} to respond</li>
+                                    <li>Check if the server might be restricting access based on User-Agent</li>
+                                    <li>Verify that redirects are being followed correctly</li>
+                                </ul>
+                                {% else %}
+                                <p>⚠️ The content doesn't appear to contain the #EXTM3U header expected in a valid M3U file.</p>
+                                <p>Possible issues:</p>
+                                <ul>
+                                    <li>The URL might not point to an M3U file</li>
+                                    <li>The server might be returning an error page or redirect</li>
+                                    <li>The M3U file might be using a non-standard format</li>
+                                </ul>
+                                {% endif %}
+                            {% else %}
+                                <p>❌ Could not connect to the URL.</p>
+                                <p>Troubleshooting steps:</p>
+                                <ul>
+                                    <li>Verify the URL is correct</li>
+                                    <li>Check if the server is online</li>
+                                    <li>Try accessing it from a different network</li>
+                                    <li>The server might be blocking requests from your IP address</li>
+                                    <li>Try using a browser User-Agent when making requests</li>
+                                    <li>The server might require authentication</li>
+                                </ul>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

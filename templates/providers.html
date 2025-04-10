@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en" class="{{ theme }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M3U to STRM Converter - Provider Management</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="fade-in">
+    <div class="container">
+        <header class="app-header">
+            <div class="logo">
+                <i class="fas fa-film"></i> M3U to STRM
+            </div>
+            <nav class="nav-links">
+                <a href="{{ url_for('index') }}" class="nav-link">Home</a>
+                <a href="{{ url_for('status') }}" class="nav-link">Status</a>
+                <a href="{{ url_for('config_page') }}" class="nav-link">Settings</a>
+                <a href="{{ url_for('content_history') }}" class="nav-link">History</a>
+                <a href="{{ url_for('processing_page') }}" class="nav-link">Processing</a>
+                <a href="{{ url_for('providers_page') }}" class="nav-link">Providers</a>
+                <a href="{{ url_for('diagnostics_page') }}" class="nav-link">Diagnostics</a>
+                <a href="{{ url_for('direct_url_check') }}" class="nav-link">URL Check</a>
+                <a href="{{ url_for('filter_settings') }}" class="nav-link">Filter Settings</a>
+            </nav>
+        </header>
+        
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        <div class="alert alert-info">
+            <ul class="mb-0">
+                {% for message in messages %}
+                <li>{{ message }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        {% endwith %}
+        
+        <!-- Provider Statistics -->
+        <div class="row">
+            <div class="col">
+                <div class="card stat-card">
+                    <div class="stat-number">{{ stats.total_providers }}</div>
+                    <div class="stat-label">Providers</div>
+                    <i class="fas fa-server" style="font-size: 1.5rem; margin-top: 10px; color: var(--primary-color);"></i>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card stat-card">
+                    <div class="stat-number">{{ stats.total_content }}</div>
+                    <div class="stat-label">Total Content Items</div>
+                    <i class="fas fa-photo-video" style="font-size: 1.5rem; margin-top: 10px; color: var(--primary-color);"></i>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Provider Management -->
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-server"></i> Content Providers
+            </div>
+            <div class="card-body">
+                {% if providers %}
+                <div class="table-container">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Provider</th>
+                                <th>Content Count</th>
+                                <th>URL</th>
+                                <th>First Seen</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for provider in providers %}
+                            <tr>
+                                <td>
+                                    <form id="provider-form-{{ provider.id }}" class="provider-name-form" style="display: flex; align-items: center;">
+                                        <span class="provider-name" data-provider-id="{{ provider.id }}">{{ provider.name }}</span>
+                                        <input type="text" class="form-control provider-name-edit" value="{{ provider.name }}" style="display: none; margin-right: 5px;" data-provider-id="{{ provider.id }}">
+                                        <button type="button" class="btn btn-sm btn-secondary edit-provider-btn" data-provider-id="{{ provider.id }}" style="margin-left: 10px;">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-primary save-provider-btn" data-provider-id="{{ provider.id }}" style="display: none; margin-left: 5px;">
+                                            <i class="fas fa-save"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-secondary cancel-edit-btn" data-provider-id="{{ provider.id }}" style="display: none; margin-left: 5px;">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                                <td>{{ provider.content_count }}</td>
+                                <td title="{{ provider.url }}">{{ provider.url[:30] + '...' if provider.url|length > 33 else provider.url }}</td>
+                                <td>{{ provider.first_seen }}</td>
+                                <td>
+                                    <a href="{{ url_for('check_now', url=provider.url) }}" class="btn btn-primary btn-sm">
+                                        <i class="fas fa-sync-alt"></i> Check Now
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="info-box" style="text-align: center;">
+                    <i class="fas fa-info-circle" style="font-size: 2rem; margin-bottom: 10px; color: var(--info-color);"></i>
+                    <p>No providers registered yet. Add an M3U file to get started.</p>
+                    <a href="{{ url_for('index') }}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Add M3U File
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Provider name editing functionality
+            const editButtons = document.querySelectorAll('.edit-provider-btn');
+            const saveButtons = document.querySelectorAll('.save-provider-btn');
+            const cancelButtons = document.querySelectorAll('.cancel-edit-btn');
+            
+            function toggleEditMode(providerId, isEdit) {
+                const nameEl = document.querySelector(`.provider-name[data-provider-id="${providerId}"]`);
+                const inputEl = document.querySelector(`.provider-name-edit[data-provider-id="${providerId}"]`);
+                const editBtn = document.querySelector(`.edit-provider-btn[data-provider-id="${providerId}"]`);
+                const saveBtn = document.querySelector(`.save-provider-btn[data-provider-id="${providerId}"]`);
+                const cancelBtn = document.querySelector(`.cancel-edit-btn[data-provider-id="${providerId}"]`);
+                
+                if (isEdit) {
+                    nameEl.style.display = 'none';
+                    inputEl.style.display = 'block';
+                    editBtn.style.display = 'none';
+                    saveBtn.style.display = 'inline-block';
+                    cancelBtn.style.display = 'inline-block';
+                    inputEl.focus();
+                } else {
+                    nameEl.style.display = 'inline';
+                    inputEl.style.display = 'none';
+                    editBtn.style.display = 'inline-block';
+                    saveBtn.style.display = 'none';
+                    cancelBtn.style.display = 'none';
+                }
+            }
+            
+            editButtons.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const providerId = this.getAttribute('data-provider-id');
+                    toggleEditMode(providerId, true);
+                });
+            });
+            
+            cancelButtons.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const providerId = this.getAttribute('data-provider-id');
+                    const nameEl = document.querySelector(`.provider-name[data-provider-id="${providerId}"]`);
+                    const inputEl = document.querySelector(`.provider-name-edit[data-provider-id="${providerId}"]`);
+                    
+                    // Reset input value to original name
+                    inputEl.value = nameEl.textContent.trim();
+                    
+                    // Exit edit mode
+                    toggleEditMode(providerId, false);
+                });
+            });
+            
+            saveButtons.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const providerId = this.getAttribute('data-provider-id');
+                    const inputEl = document.querySelector(`.provider-name-edit[data-provider-id="${providerId}"]`);
+                    const newName = inputEl.value.trim();
+                    
+                    if (newName) {
+                        // Send update request to the server
+                        fetch('/update_provider_name', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                provider_id: providerId,
+                                name: newName
+                            })
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.status === 'success') {
+                                // Update the displayed name
+                                const nameEl = document.querySelector(`.provider-name[data-provider-id="${providerId}"]`);
+                                nameEl.textContent = newName;
+                                
+                                // Show success notification
+                                showNotification('Provider Updated', `Provider name changed to "${newName}"`, 'success');
+                            } else {
+                                showNotification('Error', data.message, 'error');
+                            }
+                            
+                            // Exit edit mode
+                            toggleEditMode(providerId, false);
+                        })
+                        .catch(error => {
+                            console.error('Error updating provider name:', error);
+                            showNotification('Error', 'Failed to update provider name', 'error');
+                            
+                            // Exit edit mode
+                            toggleEditMode(providerId, false);
+                        });
+                    } else {
+                        showNotification('Error', 'Provider name cannot be empty', 'error');
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

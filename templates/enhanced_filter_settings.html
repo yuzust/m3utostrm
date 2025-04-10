@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en" class="{{ theme }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M3U to STRM Converter - Enhanced Filter Settings</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="fade-in">
+    <div class="container">
+        <header class="app-header">
+            <div class="logo">
+                <i class="fas fa-film"></i> M3U to STRM
+            </div>
+            <nav class="nav-links">
+                <a href="{{ url_for('index') }}" class="nav-link">Home</a>
+                <a href="{{ url_for('status') }}" class="nav-link">Status</a>
+                <a href="{{ url_for('config_page') }}" class="nav-link">Settings</a>
+                <a href="{{ url_for('content_history') }}" class="nav-link">History</a>
+                <a href="{{ url_for('processing_page') }}" class="nav-link">Processing</a>
+                <a href="{{ url_for('providers_page') }}" class="nav-link">Providers</a>
+                <a href="{{ url_for('diagnostics_page') }}" class="nav-link">Diagnostics</a>
+                <a href="{{ url_for('direct_url_check') }}" class="nav-link">URL Check</a>
+                <a href="{{ url_for('filter_settings') }}" class="nav-link">Filter Settings</a>
+            </nav>
+        </header>
+        
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        <div class="alert alert-info">
+            <ul class="mb-0">
+                {% for message in messages %}
+                <li>{{ message }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        {% endwith %}
+        
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-filter"></i> Enhanced Content Filter Settings
+            </div>
+            <div class="card-body">
+                <div class="info-box" style="margin-bottom: 20px;">
+                    <h3><i class="fas fa-info-circle"></i> About Content Filtering</h3>
+                    <p>These settings control how content is filtered and categorized from your M3U files. Adjust them to include or exclude specific types of content.</p>
+                    <p><strong>Note:</strong> If you're seeing a high number of skipped items, it's likely due to the language filter. Disabling it will include all content regardless of language.</p>
+                </div>
+                
+                <form action="{{ url_for('save_filter_settings') }}" method="post">
+                    <!-- Language Filter Settings -->
+                    <div class="config-section">
+                        <div class="config-section-title">
+                            <i class="fas fa-language"></i> Language Filter Settings
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="language_mode" class="form-label">Language Filter Mode:</label>
+                            <select class="form-control" id="language_mode" name="language_mode" onchange="updateLanguageSettings()">
+                                <option value="disabled" {% if not config.skip_non_english %}selected{% endif %}>Disabled (Include all languages)</option>
+                                <option value="prefix" {% if config.skip_non_english %}selected{% endif %}>Only include content with specific language prefix</option>
+                                <option value="multiple">Include multiple specific languages</option>
+                            </select>
+                        </div>
+                        
+                        <div id="language_prefix_settings" style="{% if not config.skip_non_english %}display: none;{% endif %}">
+                            <div class="form-group">
+                                <label for="language_filter" class="form-label">Language Prefix:</label>
+                                <input type="text" class="form-control" id="language_filter" name="language_filter" value="{{ config.language_filter }}">
+                                <small class="form-text">Only content starting with this prefix (e.g., "EN - ") will be included</small>
+                            </div>
+                        </div>
+                        
+                        <div id="multiple_languages_settings" style="display: none;">
+                            <div class="form-group">
+                                <label for="included_languages" class="form-label">Included Languages:</label>
+                                <input type="text" class="form-control" id="included_languages" name="included_languages" value="EN, FR, ES, DE, IT">
+                                <small class="form-text">Comma-separated language codes to include (e.g., "EN, FR, ES")</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Content Detection Settings -->
+                    <div class="config-section">
+                        <div class="config-section-title">
+                            <i class="fas fa-tasks"></i> Content Detection Settings
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="movie_keywords" class="form-label">Movie Keywords:</label>
+                            <textarea class="form-control" id="movie_keywords" name="movie_keywords" rows="3">{{ config.movie_keywords|join(', ') }}</textarea>
+                            <small class="form-text">Comma-separated keywords used to identify movies (e.g., "movie, film, feature")</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="tv_keywords" class="form-label">TV Show Keywords:</label>
+                            <textarea class="form-control" id="tv_keywords" name="tv_keywords" rows="3">{{ config.tv_keywords|join(', ') }}</textarea>
+                            <small class="form-text">Comma-separated keywords used to identify TV shows (e.g., "tv, show, series, episode")</small>
+                        </div>
+                        
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="fallback_unidentified" name="fallback_unidentified" {% if config.get('fallback_unidentified', 'none') != 'none' %}checked{% endif %}>
+                            <label class="form-check-label" for="fallback_unidentified">Use fallback for unidentified content</label>
+                        </div>
+                        
+                        <div id="fallback_settings" style="{% if config.get('fallback_unidentified', 'none') == 'none' %}display: none;{% endif %} margin-top: 15px; padding-left: 20px;">
+                            <div class="form-group">
+                                <label for="fallback_type" class="form-label">Fallback Content Type:</label>
+                                <select class="form-control" id="fallback_type" name="fallback_type">
+                                    <option value="movie" {% if config.get('fallback_unidentified') == 'movie' %}selected{% endif %}>Movie</option>
+                                    <option value="tv" {% if config.get('fallback_unidentified') == 'tv' %}selected{% endif %}>TV Show</option>
+                                </select>
+                                <small class="form-text">Unidentified content will be processed as this type</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Advanced Settings -->
+                    <div class="config-section">
+                        <div class="config-section-title">
+                            <i class="fas fa-cogs"></i> Advanced Settings
+                        </div>
+                        
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="use_year_detection" name="use_year_detection" checked>
+                            <label class="form-check-label" for="use_year_detection">Use year detection for movies (e.g., "Movie Title (2023)")</label>
+                        </div>
+                        
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="use_sxxexx_detection" name="use_sxxexx_detection" checked>
+                            <label class="form-check-label" for="use_sxxexx_detection">Use SxxExx pattern detection for TV shows</label>
+                        </div>
+                        
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="enhanced_logging" name="enhanced_logging" {% if config.get('enhanced_logging', False) %}checked{% endif %}>
+                            <label class="form-check-label" for="enhanced_logging">Enable enhanced logging (shows detailed skip reasons)</label>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Save Filter Settings
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card" style="margin-top: 20px;">
+            <div class="card-header">
+                <i class="fas fa-chart-bar"></i> Filter Statistics
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col">
+                        <div class="card stat-card">
+                            <div class="stat-number">{{ stats.processed|default('N/A') }}</div>
+                            <div class="stat-label">Processed Items</div>
+                            <i class="fas fa-check" style="font-size: 1.5rem; margin-top: 10px; color: var(--success-color);"></i>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="card stat-card">
+                            <div class="stat-number">{{ stats.skipped|default('N/A') }}</div>
+                            <div class="stat-label">Skipped Items</div>
+                            <i class="fas fa-ban" style="font-size: 1.5rem; margin-top: 10px; color: var(--danger-color);"></i>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="card stat-card">
+                            <div class="stat-number">{{ stats.skip_percent|default('N/A') }}%</div>
+                            <div class="stat-label">Skip Rate</div>
+                            <i class="fas fa-percentage" style="font-size: 1.5rem; margin-top: 10px; color: var(--warning-color);"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                {% if stats.skip_reasons and stats.skipped and stats.skipped > 0 %}
+                <div class="config-section" style="margin-top: 20px;">
+                    <div class="config-section-title">
+                        <i class="fas fa-filter"></i> Skip Reasons
+                    </div>
+                    
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Reason</th>
+                                    <th>Count</th>
+                                    <th>Percentage</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for reason, count in stats.skip_reasons.items() %}
+                                <tr>
+                                    <td>{{ reason }}</td>
+                                    <td>{{ count }}</td>
+                                    <td>{{ ((count / stats.skipped) * 100)|round(1) if stats.skipped > 0 else 0 }}%</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <div class="info-box" style="margin-top: 20px;">
+                    <p><strong>Note:</strong> High skip rates are usually due to language filtering. If you want to include content in multiple languages, adjust the language filter settings above.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script>
+        function updateLanguageSettings() {
+            const mode = document.getElementById('language_mode').value;
+            
+            // Update visibility based on selected mode
+            document.getElementById('language_prefix_settings').style.display = mode === 'prefix' ? 'block' : 'none';
+            document.getElementById('multiple_languages_settings').style.display = mode === 'multiple' ? 'block' : 'none';
+        }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            // Language settings toggle
+            updateLanguageSettings();
+            
+            // Fallback settings toggle
+            const fallbackCheckbox = document.getElementById('fallback_unidentified');
+            const fallbackSettings = document.getElementById('fallback_settings');
+            
+            fallbackCheckbox.addEventListener('change', function() {
+                fallbackSettings.style.display = this.checked ? 'block' : 'none';
+            });
+        });
+    </script>
+</body>
+</html>

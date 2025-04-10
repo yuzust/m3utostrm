@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en" class="{{ theme }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M3U to STRM Converter - Edit M3U Proxy</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="fade-in">
+    <div class="container">
+        <header class="app-header">
+            <div class="logo">
+                <i class="fas fa-film"></i> M3U to STRM
+            </div>
+            <nav class="nav-links">
+                <a href="{{ url_for('index') }}" class="nav-link">Home</a>
+                <a href="{{ url_for('status') }}" class="nav-link">Status</a>
+                <a href="{{ url_for('config_page') }}" class="nav-link">Settings</a>
+                <a href="{{ url_for('content_history') }}" class="nav-link">History</a>
+                <a href="{{ url_for('processing_page') }}" class="nav-link">Processing</a>
+                <a href="{{ url_for('providers_page') }}" class="nav-link">Providers</a>
+                <a href="{{ url_for('proxy_page') }}" class="nav-link">Proxy</a>
+                <a href="{{ url_for('diagnostics_page') }}" class="nav-link">Diagnostics</a>
+                <a href="{{ url_for('direct_url_check') }}" class="nav-link">URL Check</a>
+                <a href="{{ url_for('filter_settings') }}" class="nav-link">Filter Settings</a>
+            </nav>
+        </header>
+        
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        <div class="alert alert-info">
+            <ul class="mb-0">
+                {% for message in messages %}
+                <li>{{ message }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        {% endwith %}
+        
+        <!-- Proxy Info -->
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-info-circle"></i> Proxy Information
+                <a href="{{ url_for('proxy_page') }}" class="btn btn-secondary btn-sm" style="float: right;">
+                    <i class="fas fa-arrow-left"></i> Back
+                </a>
+            </div>
+            <div class="card-body">
+                <div class="info-box">
+                    <div class="row">
+                        <div class="col">
+                            <h3>{% if m3u is defined and m3u.name is defined %}{{ m3u.name }}{% else %}M3U Proxy{% endif %}</h3>
+                            <p><strong>Channels:</strong> <span id="channel-count">{{ m3u.channels|length }}</span></p>
+                            <p><strong>Groups:</strong> {{ groups|length }}</p>
+                            <p><strong>Original URL:</strong> {{ m3u.m3u_url or 'File upload' }}</p>
+                        </div>
+                        <div class="col">
+                            <div style="margin-bottom: 10px;">
+                                <strong>Proxy URL:</strong>
+                                <div class="input-with-button">
+                                    <input type="text" class="form-control" id="proxy-url" value="{{ request.host_url }}proxy/m3u/{{ proxy_id }}/playlist.m3u" readonly>
+                                    <button class="btn btn-secondary" id="copy-url-btn">
+                                        <i class="fas fa-copy"></i> Copy
+                                    </button>
+                                </div>
+                            </div>
+                            <div>
+                                <a href="{{ url_for('serve_proxy_m3u', proxy_id=proxy_id) }}" class="btn btn-primary" target="_blank">
+                                    <i class="fas fa-download"></i> Download M3U
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Channel Tools -->
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-sliders-h"></i> Channel Tools
+            </div>
+            <div class="card-body">
+                <div class="tab-selector">
+                    <div class="tab active" data-tab="optimize">
+                        <i class="fas fa-magic"></i> Name Optimization
+                    </div>
+                    <div class="tab" data-tab="renumber">
+                        <i class="fas fa-sort-numeric-down"></i> Channel Numbering
+                    </div>
+                    <div class="tab" data-tab="filter">
+                        <i class="fas fa-filter"></i> Filter Channels
+                    </div>
+                    <div class="tab" data-tab="vod_filter">
+                        <i class="fas fa-tv"></i> Live/VOD Filter
+                    </div>
+                </div>
+                
+                <div class="tab-content">
+                    <!-- Name Optimization Tab -->
+                    <div class="tab-pane active" id="optimize-tab">
+                        <div class="info-box" style="margin-bottom: 20px;">
+                            <p><i class="fas fa-info-circle"></i> Optimize channel names by removing prefixes, suffixes, and other unwanted elements.</p>
+                        </div>
+                        
+                        <form id="optimize-form">
+                            <div class="config-section">
+                                <div class="config-section-title">
+                                    <i class="fas fa-cog"></i> Optimization Options
+                                </div>
+                                
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input" id="remove_country_prefix" name="remove_country_prefix" checked>
+                                    <label class="form-check-label" for="remove_country_prefix">Remove country prefixes (e.g., "US: ", "UK - ")</label>
+                                </div>
+                                
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input" id="remove_quality_prefix" name="remove_quality_prefix" checked>
+                                    <label class="form-check-label" for="remove_quality_prefix">Remove quality prefixes (e.g., "HD: ", "4K - ")</label>
+                                </div>
+                                
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input" id="remove_suffixes" name="remove_suffixes" checked>
+                                    <label class="form-check-label" for="remove_suffixes">Remove suffixes (e.g., "HD", "FHD", "4K", "V2", "FI")</label>
+                                </div>
+                                
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input" id="remove_brackets" name="remove_brackets" checked>
+                                    <label class="form-check-label" for="remove_brackets">Remove text in brackets (e.g., "[VIP]", "(Adult)", "{FR}")</label>
+                                </div>
+                                
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input" id="remove_symbols" name="remove_symbols" checked>
+                                    <label class="form-check-label" for="remove_symbols">Remove symbols (e.g., "|", "*", "#")</label>
+                                </div>
+                                
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input" id="fix_spacing" name="fix_spacing" checked>
+                                    <label class="form-check-label" for="fix_spacing">Fix spacing (convert multiple spaces to single space)</label>
+                                </div>
+                                
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input" id="remove_special_chars" name="remove_special_chars" checked>
+                                    <label class="form-check-label" for="remove_special_chars">Remove special characters (e.g., "ᵁᴴᴰ", "♫")</label>
+                                </div>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-primary" id="optimize-btn">
+                                <i class="fas fa-magic"></i> Optimize Channel Names
+                            </button>
+                        </form>
+                    </div>
+                    
+                    <!-- Channel Numbering Tab -->
+                    <div class="tab-pane" id="renumber-tab">
+                        <div class="info-box" style="margin-bottom: 20px;">
+                            <p><i class="fas fa-info-circle"></i> Add or update channel numbers to make navigation easier in your media player.</p>
+                        </div>
+                        
+                        <form id="renumber-form">
+                            <div class="config-section">
+                                <div class="config-section-title">
+                                    <i class="fas fa-cog"></i> Numbering Options
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="start_number" class="form-label">Start Number:</label>
+                                    <input type="number" class="form-control" id="start_number" name="start_number" value="1" min="1">
+                                    <small class="form-text">The number to start from</small>
+                                </div>
+                                
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input" id="by_group" name="by_group">
+                                    <label class="form-check-label" for="by_group">Number channels by group (each group starts with a new number range)</label>
+                                </div>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-primary" id="renumber-btn">
+                                <i class="fas fa-sort-numeric-down"></i> Renumber Channels
+                            </button>
+                        </form>
+                    </div>
+                    
+                    <!-- Filter Channels Tab -->
+                    <div class="tab-pane" id="filter-tab">
+                        <div class="info-box" style="margin-bottom: 20px;">
+                            <p><i class="fas fa-info-circle"></i> Filter channels by group or name to create a new M3U with only the channels you want.</p>
+                        </div>
+                        
+                        <form id="filter-form">
+                            <div class="config-section">
+                                <div class="config-section-title">
+                                    <i class="fas fa-cog"></i> Filter Options
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="group" class="form-label">Filter by Group:</label>
+                                    <select class="form-control" id="group" name="group">
+                                        <option value="">All Groups</option>
+                                        {% for group, count in groups %}
+                                        <option value="{{ group }}">{{ group }} ({{ count }} channels)</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="name_contains" class="form-label">Filter by Name Contains:</label>
+                                    <input type="text" class="form-control" id="name_contains" name="name_contains" placeholder="Enter search text">
+                                    <small class="form-text">Leave empty to include all channel names</small>
+                                </div>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-primary" id="filter-btn">
+                                <i class="fas fa-filter"></i> Create Filtered M3U
+                            </button>
+                        </form>
+                    </div>
+                    
+                    <!-- Live/VOD Filter Tab -->
+                    <div class="tab-pane" id="vod_filter-tab">
+                        <div class="info-box" style="margin-bottom: 20px;">
+                            <p><i class="fas fa-info-circle"></i> Filter your playlist to include only live channels or VOD content.</p>
+                        </div>
+                        
+                        <form id="vod-filter-form">
+                            <div class="config-section">
+                                <div class="config-section-title">
+                                    <i class="fas fa-cog"></i> Content Type Filter
+                                </div>
+                                
+                                <div class="form-check">
+                                    <input type="radio" class="form-check-input" id="keep_live" name="content_type" value="live" checked>
+                                    <label class="form-check-label" for="keep_live">Keep only live channels</label>
+                                    <small class="form-text">Removes movies, TV shows, and other VOD content</small>
+                                </div>
+                                
+                                <div class="form-check">
+                                    <input type="radio" class="form-check-input" id="keep_vod" name="content_type" value="vod">
+                                    <label class="form-check-label" for="keep_vod">Keep only VOD content</label>
+                                    <small class="form-text">Removes live channels, keeping only movies and TV shows</small>
+                                </div>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-primary" id="vod-filter-btn">
+                                <i class="fas fa-filter"></i> Apply Filter
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Channel Preview with Advanced Channel Manager link -->
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-list"></i> Channel Preview
+                <div style="float: right">
+                    <a href="{{ url_for('channel_manager', proxy_id=proxy_id) }}" class="btn btn-primary btn-sm">
+                        <i class="fas fa-th-list"></i> Advanced Channel Manager
+                    </a>
+                    <button id="refresh-preview-btn" class="btn btn-secondary btn-sm">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-container">
+                    <table class="table" id="channel-table">
+                        <thead>
+                            <tr>
+                                <th>Number</th>
+                                <th>Name</th>
+                                <th>Category</th>
+                                <th>URL</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for channel in m3u.channels[:50] %}
+                            <tr>
+                                <td>{{ channel.tvg_chno }}</td>
+                                <td>{{ channel.name }}</td>
+                                <td>{{ channel.group_title }}</td>
+                                <td title="{{ channel.url }}">{{ channel.url[:30] + '...' if channel.url|length > 33 else channel.url }}</td>
+                            </tr>
+                            {% endfor %}
+                            {% if m3u.channels|length > 50 %}
+                            <tr>
+                                <td colspan="4" class="text-center">
+                                    <i class="fas fa-ellipsis-h"></i> Showing 50 of {{ m3u.channels|length }} channels
+                                    <p class="mt-2">
+                                        Use the <a href="{{ url_for('channel_manager', proxy_id=proxy_id) }}">Advanced Channel Manager</a> for full pagination, category management, and more features.
+                                    </p>
+                                </td>
+                            </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <style>
+        .input-with-button {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .tab-selector {
+            display: flex;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 20px;
+        }
+        
+        .tab {
+            padding: 10px 15px;
+            cursor: pointer;
+            opacity: 0.7;
+            font-weight: 500;
+            transition: opacity 0.2s ease, border-bottom 0.2s ease;
+        }
+        
+        .tab.active {
+            opacity: 1;
+            border-bottom: 2px solid var(--primary-color);
+        }
+        
+        .tab-content {
+            padding: 0;
+        }
+        
+        .tab-pane {
+            display: none;
+        }
+        
+        .tab-pane.active {
+            display: block;
+            animation: fadeIn 0.3s ease-out;
+        }
+    </style>
+    
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Tab functionality
+            const tabs = document.querySelectorAll('.tab');
+            const tabPanes = document.querySelectorAll('.tab-pane');
+            
+            tabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const tabId = this.getAttribute('data-tab');
+                    
+                    // Update active tab
+                    tabs.forEach(t => t.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // Update active tab pane
+                    tabPanes.forEach(pane => pane.classList.remove('active'));
+                    document.getElementById(tabId + '-tab').classList.add('active');
+                });
+            });
+            
+            // Copy URL functionality
+            const copyUrlBtn = document.getElementById('copy-url-btn');
+            const proxyUrlInput = document.getElementById('proxy-url');
+            
+            copyUrlBtn.addEventListener('click', function() {
+                proxyUrlInput.select();
+                document.execCommand('copy');
+                showNotification('Success', 'Proxy URL copied to clipboard', 'success');
+            });
+            
+            // Name Optimization Form
+            const optimizeForm = document.getElementById('optimize-form');
+            const optimizeBtn = document.getElementById('optimize-btn');
+            
+            optimizeForm.addEventListener('submit', function(event) {
+                event.preventDefault();
+                
+                // Collect options
+                const options = {
+                    remove_country_prefix: document.getElementById('remove_country_prefix').checked,
+                    remove_quality_prefix: document.getElementById('remove_quality_prefix').checked,
+                    remove_brackets: document.getElementById('remove_brackets').checked,
+                    remove_symbols: document.getElementById('remove_symbols').checked,
+                    fix_spacing: document.getElementById('fix_spacing').checked,
+                    remove_special_chars: document.getElementById('remove_special_chars').checked,
+                    remove_suffixes: document.getElementById('remove_suffixes').checked
+                };
+                
+                // Show loading state
+                optimizeBtn.disabled = true;
+                optimizeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Optimizing...';
+                
+                // Send request
+                fetch('{{ url_for("proxy_api_optimize") }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        proxy_id: '{{ proxy_id }}',
+                        options: options
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        showNotification('Success', data.message, 'success');
+                        document.getElementById('channel-count').textContent = data.channel_count;
+                        refreshChannelPreview();
+                    } else {
+                        showNotification('Error', data.message, 'error');
+                    }
+                    
+                    // Reset button state
+                    optimizeBtn.disabled = false;
+                    optimizeBtn.innerHTML = '<i class="fas fa-magic"></i> Optimize Channel Names';
+                })
+                .catch(error => {
+                    console.error('Error optimizing channel names:', error);
+                    showNotification('Error', 'Failed to optimize channel names', 'error');
+                    
+                    // Reset button state
+                    optimizeBtn.disabled = false;
+                    optimizeBtn.innerHTML = '<i class="fas fa-magic"></i> Optimize Channel Names';
+                });
+            });
+            
+            // Channel Numbering Form
+            const renumberForm = document.getElementById('renumber-form');
+            const renumberBtn = document.getElementById('renumber-btn');
+            
+            renumberForm.addEventListener('submit', function(event) {
+                event.preventDefault();
+                
+                // Get options
+                const startNumber = parseInt(document.getElementById('start_number').value) || 1;
+                const byGroup = document.getElementById('by_group').checked;
+                
+                // Show loading state
+                renumberBtn.disabled = true;
+                renumberBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Renumbering...';
+                
+                // Send request
+                fetch('{{ url_for("proxy_api_renumber") }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        proxy_id: '{{ proxy_id }}',
+                        start_number: startNumber,
+                        by_group: byGroup
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        showNotification('Success', data.message, 'success');
+                        refreshChannelPreview();
+                    } else {
+                        showNotification('Error', data.message, 'error');
+                    }
+                    
+                    // Reset button state
+                    renumberBtn.disabled = false;
+                    renumberBtn.innerHTML = '<i class="fas fa-sort-numeric-down"></i> Renumber Channels';
+                })
+                .catch(error => {
+                    console.error('Error renumbering channels:', error);
+                    showNotification('Error', 'Failed to renumber channels', 'error');
+                    
+                    // Reset button state
+                    renumberBtn.disabled = false;
+                    renumberBtn.innerHTML = '<i class="fas fa-sort-numeric-down"></i> Renumber Channels';
+                });
+            });
+            
+            // Filter Channels Form
+            const filterForm = document.getElementById('filter-form');
+            const filterBtn = document.getElementById('filter-btn');
+            
+            filterForm.addEventListener('submit', function(event) {
+                event.preventDefault();
+                
+                // Get options
+                const group = document.getElementById('group').value;
+                const nameContains = document.getElementById('name_contains').value.trim();
+                
+                // Show loading state
+                filterBtn.disabled = true;
+                filterBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Filtering...';
+                
+                // Send request
+                fetch('{{ url_for("proxy_api_filter") }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        proxy_id: '{{ proxy_id }}',
+                        group: group || null,
+                        name_contains: nameContains || null
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        showNotification(
+                            'Success', 
+                            `Created filtered M3U with ${data.filtered_count} of ${data.original_count} channels`, 
+                            'success'
+                        );
+                        
+                        // Redirect to the new filtered M3U
+                        setTimeout(() => {
+                            window.location.href = "{{ url_for('proxy_edit', proxy_id='') }}" + data.new_proxy_id;
+                        }, 1500);
+                    } else {
+                        showNotification('Error', data.message, 'error');
+                        
+                        // Reset button state
+                        filterBtn.disabled = false;
+                        filterBtn.innerHTML = '<i class="fas fa-filter"></i> Create Filtered M3U';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error filtering channels:', error);
+                    showNotification('Error', 'Failed to filter channels', 'error');
+                    
+                    // Reset button state
+                    filterBtn.disabled = false;
+                    filterBtn.innerHTML = '<i class="fas fa-filter"></i> Create Filtered M3U';
+                });
+            });
+            
+            // VOD/Live Filter Form
+            const vodFilterForm = document.getElementById('vod-filter-form');
+            const vodFilterBtn = document.getElementById('vod-filter-btn');
+            
+            vodFilterForm.addEventListener('submit', function(event) {
+                event.preventDefault();
+                
+                // Get selected option
+                const contentType = document.querySelector('input[name="content_type"]:checked').value;
+                const keepLiveOnly = contentType === 'live';
+                
+                // Show loading state
+                vodFilterBtn.disabled = true;
+                vodFilterBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Applying Filter...';
+                
+                // Send request
+                fetch('{{ url_for("proxy_api_filter_vod") }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        proxy_id: '{{ proxy_id }}',
+                        keep_live_only: keepLiveOnly
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        showNotification(
+                            'Success', 
+                            `Filter applied: ${data.filtered_count} of ${data.original_count} channels remaining`, 
+                            'success'
+                        );
+                        
+                        // Refresh the page to see changes
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
+                    } else {
+                        showNotification('Error', data.message, 'error');
+                        
+                        // Reset button state
+                        vodFilterBtn.disabled = false;
+                        vodFilterBtn.innerHTML = '<i class="fas fa-filter"></i> Apply Filter';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error applying VOD filter:', error);
+                    showNotification('Error', 'Failed to apply VOD filter', 'error');
+                    
+                    // Reset button state
+                    vodFilterBtn.disabled = false;
+                    vodFilterBtn.innerHTML = '<i class="fas fa-filter"></i> Apply Filter';
+                });
+            });
+            
+            // Refresh Channel Preview
+            const refreshPreviewBtn = document.getElementById('refresh-preview-btn');
+            
+            refreshPreviewBtn.addEventListener('click', function() {
+                refreshChannelPreview();
+            });
+            
+            function refreshChannelPreview() {
+                // Show loading state
+                const channelTable = document.getElementById('channel-table');
+                const tbody = channelTable.querySelector('tbody');
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading channel preview...</td></tr>';
+                
+                // Force reload the page to refresh the preview
+                window.location.reload();
+            }
+        });
+    </script>
+</body>
+</html>

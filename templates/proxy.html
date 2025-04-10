@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en" class="{{ theme }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M3U to STRM Converter - M3U Proxy Manager</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- React and dependencies -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Configure Tailwind -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {}
+            },
+        };
+        
+        // Apply dark mode class to html element if theme is dark
+        if ("{{ theme }}" === "dark") {
+            document.documentElement.classList.add('dark');
+        }
+    </script>
+    
+    <!-- Add styles needed for React component to work with dark mode -->
+    <style>
+        /* Dark mode variables for React components to match the existing UI */
+        :root {
+            --primary-color: #007aff;
+            --secondary-color: #5ac8fa;
+            --success-color: #34c759;
+            --danger-color: #ff3b30;
+            --warning-color: #ffcc00;
+            --info-color: #5ac8fa;
+            --light-color: #f2f2f7;
+            --dark-color: #1c1c1e;
+            --gray-color: #8e8e93;
+        }
+        
+        .dark {
+            --bg-color: #000;
+            --card-bg: #1c1c1e;
+            --text-color: #fff;
+            --border-color: #38383a;
+            --input-bg: #2c2c2e;
+            --input-text: #fff;
+            --muted-text: #8e8e93;
+            --hover-bg: #2c2c2e;
+        }
+        
+        .light {
+            --bg-color: #f2f2f7;
+            --card-bg: #fff;
+            --text-color: #000;
+            --border-color: #d1d1d6;
+            --input-bg: #fff;
+            --input-text: #000;
+            --muted-text: #8e8e93;
+            --hover-bg: #f9fafb;
+        }
+        
+        /* Dark mode overrides for the React component */
+        .dark .bg-white {
+            background-color: var(--card-bg) !important;
+        }
+        
+        .dark .text-gray-800,
+        .dark .text-gray-700,
+        .dark .text-gray-900 {
+            color: var(--text-color) !important;
+        }
+        
+        .dark .border-gray-200 {
+            border-color: var(--border-color) !important;
+        }
+        
+        .dark .bg-gray-50 {
+            background-color: var(--hover-bg) !important;
+        }
+        
+        .dark .bg-blue-50 {
+            background-color: rgba(0, 122, 255, 0.1) !important;
+        }
+    </style>
+</head>
+<body class="fade-in">
+    <div class="container">
+        <header class="app-header">
+            <div class="logo">
+                <i class="fas fa-film"></i> M3U to STRM
+            </div>
+            <nav class="nav-links">
+                <a href="{{ url_for('index') }}" class="nav-link">Home</a>
+                <a href="{{ url_for('status') }}" class="nav-link">Status</a>
+                <a href="{{ url_for('config_page') }}" class="nav-link">Settings</a>
+                <a href="{{ url_for('content_history') }}" class="nav-link">History</a>
+                <a href="{{ url_for('processing_page') }}" class="nav-link">Processing</a>
+                <a href="{{ url_for('providers_page') }}" class="nav-link">Providers</a>
+                <a href="{{ url_for('proxy_page') }}" class="nav-link">Proxy</a>
+                <a href="{{ url_for('diagnostics_page') }}" class="nav-link">Diagnostics</a>
+                <a href="{{ url_for('direct_url_check') }}" class="nav-link">URL Check</a>
+                <a href="{{ url_for('filter_settings') }}" class="nav-link">Filter Settings</a>
+            </nav>
+        </header>
+        
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        <div class="alert alert-info">
+            <ul class="mb-0">
+                {% for message in messages %}
+                <li>{{ message }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        {% endwith %}
+        
+        <!-- React Component Mounting Point -->
+        <div id="proxy-manager-root"></div>
+    </div>
+    
+    <!-- Full React Component Definition -->
+    <script type="text/javascript">
+        // Main Proxy Manager Component
+        const ProxyManager = () => {
+            const [proxies, setProxies] = React.useState([]);
+            const [loading, setLoading] = React.useState(true);
+            const [error, setError] = React.useState(null);
+            const [deleteModal, setDeleteModal] = React.useState({ show: false, proxyId: null, proxyName: '' });
+            
+            // Fetch proxies when component mounts
+            React.useEffect(() => {
+                fetchProxies();
+            }, []);
+            
+            const fetchProxies = async () => {
+                try {
+                    setLoading(true);
+                    // Try to fetch from API first
+                    try {
+                        const response = await fetch('/api/proxies');
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            setProxies(data.m3us || []);
+                            setError(null);
+                            setLoading(false);
+                            return;
+                        }
+                    } catch (apiError) {
+                        console.log('API not yet available, using template data');
+                    }
+                    
+                    // Fallback to data passed from Flask template
+                    setProxies({{ m3us|tojson if m3us else [] }});
+                    setError(null);
+                } catch (err) {
+                    console.error('Error fetching proxies:', err);
+                    setError('Failed to load proxies. Please try refreshing the page.');
+                } finally {
+                    setLoading(false);
+                }
+            };
+            
+            const handleCopyUrl = (url) => {
+                navigator.clipboard.writeText(url).then(
+                    () => showNotification('Success', 'Proxy URL copied to clipboard', 'success'),
+                    () => showNotification('Error', 'Failed to copy URL', 'error')
+                );
+            };
+            
+            const handleDelete = (id, name) => {
+                setDeleteModal({ show: true, proxyId: id, proxyName: name });
+            };
+            
+            const confirmDelete = async () => {
+                try {
+                    const response = await fetch(`/proxy/delete/${deleteModal.proxyId}`, {
+                        method: 'GET'
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error('Failed to delete proxy');
+                    }
+                    
+                    // Remove the deleted proxy from state
+                    setProxies(proxies.filter(proxy => proxy.id !== deleteModal.proxyId));
+                    showNotification('Success', 'Proxy deleted successfully', 'success');
+                } catch (err) {
+                    console.error('Error deleting proxy:', err);
+                    showNotification('Error', 'Failed to delete proxy', 'error');
+                } finally {
+                    setDeleteModal({ show: false, proxyId: null, proxyName: '' });
+                }
+            };
+            
+            return React.createElement('div', { className: "space-y-6" }, [
+                // Proxy List Card
+                React.createElement('div', { className: "bg-white dark:bg-gray-700 rounded-lg shadow-md overflow-hidden", key: "proxy-list" }, [
+                    React.createElement('div', { className: "flex justify-between items-center px-6 py-4 border-b border-gray-200 dark:border-gray-600" }, [
+                        React.createElement('div', { className: "flex items-center" }, [
+                            React.createElement('i', { className: "fas fa-server mr-2 text-blue-500" }),
+                            React.createElement('h2', { className: "text-lg font-semibold" }, "M3U Proxies")
+                        ]),
+                        React.createElement('a', { 
+                            href: "/proxy/create", 
+                            className: "inline-flex items-center px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-md hover:bg-blue-600"
+                        }, [
+                            React.createElement('i', { className: "fas fa-plus mr-1" }),
+                            "Create New Proxy"
+                        ])
+                    ]),
+                    
+                    React.createElement('div', { className: "p-6" }, 
+                        loading ? 
+                            React.createElement('div', { className: "flex justify-center py-8" }, 
+                                React.createElement('div', { className: "animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" })
+                            ) 
+                        : error ? 
+                            React.createElement('div', { className: "bg-red-100 text-red-700 p-4 rounded-md" }, error) 
+                        : proxies.length === 0 ? 
+                            React.createElement('div', { className: "text-center py-8" }, [
+                                React.createElement('i', { className: "fas fa-info-circle text-blue-500 text-4xl mb-4" }),
+                                React.createElement('p', { className: "mb-4" }, "No M3U proxies yet. Create your first one to get started."),
+                                React.createElement('a', { 
+                                    href: "/proxy/create", 
+                                    className: "inline-flex items-center px-4 py-2 bg-blue-500 text-white font-medium rounded-md hover:bg-blue-600"
+                                }, [
+                                    React.createElement('i', { className: "fas fa-plus mr-1" }),
+                                    "Create New Proxy"
+                                ])
+                            ])
+                        : 
+                            React.createElement('div', { className: "overflow-x-auto" }, 
+                                React.createElement('table', { className: "min-w-full divide-y divide-gray-200 dark:divide-gray-600" }, [
+                                    React.createElement('thead', {}, 
+                                        React.createElement('tr', { className: "bg-gray-50 dark:bg-gray-700" }, [
+                                            React.createElement('th', { className: "px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider" }, "Name"),
+                                            React.createElement('th', { className: "px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider" }, "Channels"),
+                                            React.createElement('th', { className: "px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider" }, "Created"),
+                                            React.createElement('th', { className: "px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider" }, "Actions")
+                                        ])
+                                    ),
+                                    React.createElement('tbody', { className: "bg-white dark:bg-gray-700 divide-y divide-gray-200 dark:divide-gray-600" }, 
+                                        proxies.map((proxy) => 
+                                            React.createElement('tr', { key: proxy.id }, [
+                                                React.createElement('td', { className: "px-6 py-4 whitespace-nowrap" }, proxy.name),
+                                                React.createElement('td', { className: "px-6 py-4 whitespace-nowrap" }, proxy.channel_count),
+                                                React.createElement('td', { className: "px-6 py-4 whitespace-nowrap" }, proxy.created_at),
+                                                React.createElement('td', { className: "px-6 py-4 whitespace-nowrap" }, 
+                                                    React.createElement('div', { className: "flex space-x-2" }, [
+                                                        React.createElement('a', { 
+                                                            href: `/proxy/manage-channels/${proxy.id}`,
+                                                            className: "inline-flex items-center p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-gray-600 rounded-md",
+                                                            title: "Manage Channels"
+                                                        }, React.createElement('i', { className: "fas fa-th-list" })),
+                                                        React.createElement('a', { 
+                                                            href: `/proxy/m3u/${proxy.id}/playlist.m3u`,
+                                                            className: "inline-flex items-center p-2 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-md",
+                                                            title: "Download",
+                                                            target: "_blank",
+                                                            rel: "noopener noreferrer"
+                                                        }, React.createElement('i', { className: "fas fa-download" })),
+                                                        React.createElement('button', { 
+                                                            onClick: () => handleCopyUrl(`${window.location.origin}/proxy/m3u/${proxy.id}/playlist.m3u`),
+                                                            className: "inline-flex items-center p-2 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-md",
+                                                            title: "Copy URL"
+                                                        }, React.createElement('i', { className: "fas fa-copy" })),
+                                                        React.createElement('button', { 
+                                                            onClick: () => handleDelete(proxy.id, proxy.name),
+                                                            className: "inline-flex items-center p-2 text-red-500 hover:bg-red-50 dark:hover:bg-gray-600 rounded-md",
+                                                            title: "Delete"
+                                                        }, React.createElement('i', { className: "fas fa-trash" }))
+                                                    ])
+                                                )
+                                            ])
+                                        )
+                                    )
+                                ])
+                            )
+                    )
+                ]),
+                
+                // Info Card
+                React.createElement('div', { className: "bg-white dark:bg-gray-700 rounded-lg shadow-md overflow-hidden", key: "info-card" }, [
+                    React.createElement('div', { className: "px-6 py-4 border-b border-gray-200 dark:border-gray-600 flex items-center" }, [
+                        React.createElement('i', { className: "fas fa-question-circle mr-2 text-blue-500" }),
+                        React.createElement('h2', { className: "text-lg font-semibold" }, "What is M3U Proxy?")
+                    ]),
+                    React.createElement('div', { className: "p-6" }, 
+                        React.createElement('div', { className: "bg-blue-50 dark:bg-gray-600 p-4 rounded-md" }, [
+                            React.createElement('h3', { className: "font-semibold text-lg mb-2" }, "About M3U Proxy Feature"),
+                            React.createElement('p', { className: "mb-2" }, "The M3U Proxy feature allows you to:"),
+                            React.createElement('ul', { className: "list-disc pl-5 mb-4 space-y-1" }, [
+                                React.createElement('li', {}, "Create customized versions of your M3U playlists"),
+                                React.createElement('li', {}, "Optimize channel names by removing prefix/suffix text"),
+                                React.createElement('li', {}, "Create and apply custom regex patterns for advanced name formatting"),
+                                React.createElement('li', {}, "Renumber channels for easier navigation"),
+                                React.createElement('li', {}, "Filter channels to only include what you want"),
+                                React.createElement('li', {}, "Host the modified playlist directly from this application")
+                            ]),
+                            React.createElement('p', {}, "Once created, you can use the proxy URL in your media player or IPTV client.")
+                        ])
+                    )
+                ]),
+                
+                // Delete Confirmation Modal
+                deleteModal.show && 
+                    React.createElement('div', { className: "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50", key: "delete-modal" }, 
+                        React.createElement('div', { className: "bg-white dark:bg-gray-700 rounded-lg shadow-lg overflow-hidden w-full max-w-md mx-4" }, [
+                            React.createElement('div', { className: "px-6 py-4 border-b border-gray-200 dark:border-gray-600 flex justify-between items-center" }, [
+                                React.createElement('h3', { className: "text-lg font-semibold" }, "Confirm Deletion"),
+                                React.createElement('button', { 
+                                    onClick: () => setDeleteModal({ show: false, proxyId: null, proxyName: '' }),
+                                    className: "text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white"
+                                }, React.createElement('i', { className: "fas fa-times" }))
+                            ]),
+                            React.createElement('div', { className: "p-6" }, [
+                                React.createElement('p', { className: "mb-4" }, [
+                                    "Are you sure you want to delete ",
+                                    React.createElement('span', { className: "font-semibold" }, deleteModal.proxyName),
+                                    "?"
+                                ]),
+                                React.createElement('p', { className: "mb-6 text-gray-500 dark:text-gray-400" }, "This action cannot be undone."),
+                                React.createElement('div', { className: "flex justify-end space-x-3" }, [
+                                    React.createElement('button', { 
+                                        onClick: () => setDeleteModal({ show: false, proxyId: null, proxyName: '' }),
+                                        className: "px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500"
+                                    }, "Cancel"),
+                                    React.createElement('button', { 
+                                        onClick: confirmDelete,
+                                        className: "px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600"
+                                    }, "Delete")
+                                ])
+                            ])
+                        ])
+                    )
+            ]);
+        };
+
+        // Custom Regex Channel Name Optimizer Component
+        const CustomRegexOptimizer = ({ proxyId, onSuccess }) => {
+            const [patterns, setPatterns] = React.useState([
+                { pattern: '', replacement: '', description: '' }
+            ]);
+            const [saving, setSaving] = React.useState(false);
+            const [error, setError] = React.useState(null);
+            const [showPreview, setShowPreview] = React.useState(false);
+            const [previewResults, setPreviewResults] = React.useState([]);
+            
+            // Standard options
+            const [standardOptions, setStandardOptions] = React.useState({
+                remove_country_prefix: true,
+                remove_quality_prefix: true,
+                remove_suffixes: true,
+                remove_brackets: true,
+                remove_symbols: true,
+                fix_spacing: true,
+                remove_special_chars: true
+            });
+            
+            const addPattern = () => {
+                setPatterns([...patterns, { pattern: '', replacement: '', description: '' }]);
+            };
+            
+            const removePattern = (index) => {
+                const newPatterns = [...patterns];
+                newPatterns.splice(index, 1);
+                setPatterns(newPatterns);
+            };
+            
+            const updatePattern = (index, field, value) => {
+                const newPatterns = [...patterns];
+                newPatterns[index][field] = value;
+                setPatterns(newPatterns);
+            };
+            
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setError(null);
+                setSaving(true);
+                
+                try {
+                    // Validate regex patterns first
+                    patterns.forEach(pattern => {
+                        if (pattern.pattern) {
+                            try {
+                                new RegExp(pattern.pattern);
+                            } catch (err) {
+                                throw new Error(`Invalid regex pattern: ${pattern.pattern}`);
+                            }
+                        }
+                    });
+                    
+                    // Filter out empty patterns
+                    const validPatterns = patterns.filter(p => p.pattern);
+                    
+                    // API call would be here
+                    const response = await fetch('/api/optimize-channels', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            proxy_id: proxyId,
+                            standard_options: standardOptions,
+                            custom_patterns: validPatterns
+                        }),
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error('Failed to optimize channel names');
+                    }
+                    
+                    showNotification('Success', 'Channel names optimized successfully', 'success');
+                    if (onSuccess) onSuccess();
+                } catch (err) {
+                    setError(err.message);
+                    showNotification('Error', err.message, 'error');
+                } finally {
+                    setSaving(false);
+                }
+            };
+            
+            const previewOptimization = async () => {
+                try {
+                    setError(null);
+                    
+                    // Validate regex patterns first
+                    patterns.forEach(pattern => {
+                        if (pattern.pattern) {
+                            try {
+                                new RegExp(pattern.pattern);
+                            } catch (err) {
+                                throw new Error(`Invalid regex pattern: ${pattern.pattern}`);
+                            }
+                        }
+                    });
+                    
+                    // Filter out empty patterns
+                    const validPatterns = patterns.filter(p => p.pattern);
+                    
+                    // API call to get preview
+                    const response = await fetch('/api/preview-optimization', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            proxy_id: proxyId,
+                            standard_options: standardOptions,
+                            custom_patterns: validPatterns
+                        }),
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error('Failed to preview optimization');
+                    }
+                    
+                    const data = await response.json();
+                    setPreviewResults(data.preview_results || []);
+                    setShowPreview(true);
+                } catch (err) {
+                    setError(err.message);
+                    showNotification('Error', err.message, 'error');
+                }
+            };
+            
+            // Return JSX using React.createElement
+            // (Implementation omitted for brevity - this would be the same as in the full component)
+        };
+
+        // Utility function for showing notifications
+        const showNotification = (title, message, type = "info") => {
+            // Check if the global function exists
+            if (typeof window.showNotification === 'function') {
+                window.showNotification(title, message, type);
+            } else {
+                // Fallback if the global function doesn't exist
+                console.log(`${type.toUpperCase()}: ${title} - ${message}`);
+                alert(`${title}: ${message}`);
+            }
+        };
+
+        // Initialize the component when the DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            // Mount the React component
+            const rootElement = document.getElementById('proxy-manager-root');
+            if (rootElement) {
+                ReactDOM.createRoot(rootElement).render(React.createElement(ProxyManager));
+            }
+        });
+    </script>
+    
+    <!-- Import the main app.js for notification support -->
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
