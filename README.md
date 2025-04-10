@@ -47,7 +47,26 @@ The application will be available at http://localhost:8768 by default.
 
 ### Docker Installation
 
-*Coming soon*
+```dockerfile
+services:
+  m3u-converter:
+    image: m3utostrm
+    container_name: m3u-converter
+    ports:
+      - "8768:8768"
+    volumes:
+      - /mnt/m3utostrm/data:/app/data
+      - /mnt/m3utostrm/logs:/app/logs
+      - /mnt/m3utostrm/content:/app/content
+      - /mnt/m3utostrm/uploads:/app/uploads
+    restart: unless-stopped
+    environment:
+      - TZ=UTC  # Set your preferred timezone
+```
+
+```bash
+docker pull ghcr.io/yuzust/m3utostrm:latest
+```
 
 ## 🖥️ Usage
 
