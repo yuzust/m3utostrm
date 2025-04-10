@@ -211,9 +211,9 @@ def download_m3u(url, save_path):
 
 async def async_process_m3u(file_path, user_path=None, url=None, job_id=None):
     """Process an M3U file asynchronously with enhanced error handling and debugging"""
-    logger.info(f'Starting M3U processing: {file_path}')
+    logger.info(f'Starting optimized M3U processing: {file_path}')
     
-    # Verify file exists and has content
+    # Verify file exists and has content (keep this part from original)
     if not os.path.exists(file_path):
         error_msg = f"Error: M3U file not found at {file_path}"
         logger.error(error_msg)
@@ -234,14 +234,13 @@ async def async_process_m3u(file_path, user_path=None, url=None, job_id=None):
     logger.info(f'M3U file exists and has size: {file_size} bytes')
     
     try:
-        # If user specified custom output path, update the configuration
+        # Handle custom output path (keep this part from original)
         if user_path and os.path.exists(user_path):
             config = db.load_config()
             config["output_path"] = user_path
             db.save_config(config)
             logger.info(f'Using custom output path: {user_path}')
         else:
-            # Load default config
             config = db.load_config()
             logger.info(f'Using default output path: {config.get("output_path", "content")}')
             
@@ -259,23 +258,21 @@ async def async_process_m3u(file_path, user_path=None, url=None, job_id=None):
                     'message': error_msg
                 }
         
-        # Check if the file looks like an M3U file
-        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-            first_line = f.readline().strip()
-            if not first_line.startswith('#EXTM3U'):
-                warning_msg = f"Warning: File doesn't start with #EXTM3U, might not be a valid M3U file: {first_line[:50]}"
-                logger.warning(warning_msg)
-                # Continue processing anyway, as some M3U files might not have the proper header
+        # Import optimized processor
+        from m3u_optimizer import process_m3u_optimized
         
-        # Process the M3U file using streamClasses
-        logger.info('Starting raw M3U processing through streamClasses.rawStreamList')
+        # Process the M3U file using optimized processor
+        logger.info('Starting optimized M3U processing')
         try:
-            # Process the file - pass the URL as provider_url
-            stats = await streamClasses.async_process_m3u(file_path, job_id, url)
+            # Get batch size from config (add this to your settings UI)
+            batch_size = config.get("processing_batch_size", 100)
+            
+            # Process using optimized method
+            stats = await process_m3u_optimized(file_path, content_path, url, batch_size)
             
             logger.info(f'Processing completed with stats: {stats}')
             
-            # Count content directories
+            # Count content directories (keep this part from original)
             movie_path = os.path.join(content_path, 'Movies')
             tv_shows_path = os.path.join(content_path, 'TV Shows')
             
@@ -305,7 +302,7 @@ async def async_process_m3u(file_path, user_path=None, url=None, job_id=None):
             
             return result
         except Exception as process_error:
-            logger.error(f'Error during M3U processing: {str(process_error)}', exc_info=True)
+            logger.error(f'Error during optimized M3U processing: {str(process_error)}', exc_info=True)
             
             # Try to extract more detailed error information
             error_details = str(process_error)

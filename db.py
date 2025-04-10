@@ -88,6 +88,8 @@ def load_config():
         "language_filter": "EN",
         "skip_non_english": True,
         "update_frequency": 24,
+        "processing_batch_size": 100,
+        "worker_count": 10,
         "ui_theme": "dark",
         "discord_webhook_url": "",
         "notifications_enabled": False
