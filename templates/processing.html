@@ -368,7 +368,7 @@
         }
         
         function refreshActiveJobs() {
-            fetch("{{ url_for('api_active_jobs') }}")
+            fetch("{{ url_for('active_jobs') }}")
                 .then(response => response.json())
                 .then(data => {
                     if (data.status === 'success') {
